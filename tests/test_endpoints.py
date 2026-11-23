@@ -21,6 +21,13 @@ class FullSystemSmokeTest(unittest.TestCase):
         self.assertIn(b'JBD Travels', res.data)
         self.assertIn(b'root', res.data)
 
+    def test_budget_planner_frontend_components(self):
+        res = self.client.get('/static/js/app.js')
+        self.assertEqual(res.status_code, 200)
+        self.assertIn(b'isDestinationDropdownOpen', res.data)
+        self.assertIn(b'filteredDestinations', res.data)
+        self.assertIn(b'aria-label="Total budget in USD"', res.data)
+
     def test_destinations_api(self):
         res = self.client.get('/api/destinations')
         self.assertEqual(res.status_code, 200)

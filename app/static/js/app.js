@@ -515,7 +515,7 @@ function ExploreTab({ onSelectDestinationForPlan, showToast, currency }) {
     try {
       const res = await api.getAiRecommendations({
         preferences: selectedPrefs,
-        budget: budgetSlider,
+        budget: Number(budgetSlider) || 2500,
         duration_days: durationDays,
         travelers_count: 1,
         limit: 4
@@ -654,14 +654,40 @@ function ExploreTab({ onSelectDestinationForPlan, showToast, currency }) {
             <div>
               <div className="flex justify-between items-center mb-1">
                 <span className="text-xs font-bold text-slate-700">Total Budget ({currency})</span>
-                <span className="text-sm font-extrabold text-brand-600">{formatCurrency(budgetSlider, currency)}</span>
+                <div className="flex items-center space-x-2">
+                  {currency === 'INR' && (
+                    <span className="text-xs font-bold text-emerald-600">
+                      ≈ {formatCurrency(budgetSlider, currency)}
+                    </span>
+                  )}
+                  <div className="relative flex items-center">
+                    <span className="absolute left-2 text-xs font-bold text-brand-600">$</span>
+                    <input
+                      type="number"
+                      min="100"
+                      step="50"
+                      value={budgetSlider}
+                      onChange={e => {
+                        const val = e.target.value;
+                        setBudgetSlider(val === '' ? '' : Number(val));
+                      }}
+                      onBlur={() => {
+                        if (budgetSlider === '' || Number(budgetSlider) < 100) {
+                          setBudgetSlider(2500);
+                        }
+                      }}
+                      className="w-24 pl-5 pr-1.5 py-0.5 bg-white border border-slate-200 rounded-lg text-xs font-extrabold text-brand-600 text-right focus:ring-1 focus:ring-brand-500 focus:outline-none"
+                      aria-label="Total budget in USD"
+                    />
+                  </div>
+                </div>
               </div>
               <input
                 type="range"
                 min="500"
-                max="8000"
+                max={Math.max(8000, Number(budgetSlider) || 8000)}
                 step="100"
-                value={budgetSlider}
+                value={Number(budgetSlider) || 500}
                 onChange={e => setBudgetSlider(Number(e.target.value))}
                 className="w-full accent-brand-600 cursor-pointer"
               />
@@ -950,18 +976,82 @@ function BudgetPlannerTab({ initialDestination, initialBudget, initialDuration, 
   const [inquirySpecialReq, setInquirySpecialReq] = useState('');
   const [isSubmittingInquiry, setIsSubmittingInquiry] = useState(false);
 
+  // Destination typeable dropdown states & references
+  const [destinationsList, setDestinationsList] = useState([
+    { name: 'Tokyo, Japan', city: 'Tokyo', country: 'Japan' },
+    { name: 'Paris, France', city: 'Paris', country: 'France' },
+    { name: 'Bali, Indonesia', city: 'Bali', country: 'Indonesia' },
+    { name: 'Rome, Italy', city: 'Rome', country: 'Italy' },
+    { name: 'Dubai, United Arab Emirates', city: 'Dubai', country: 'United Arab Emirates' },
+    { name: 'Cape Town, South Africa', city: 'Cape Town', country: 'South Africa' },
+    { name: 'Bangkok, Thailand', city: 'Bangkok', country: 'Thailand' },
+    { name: 'New York City, USA', city: 'New York City', country: 'USA' }
+  ]);
+  const [isDestinationDropdownOpen, setIsDestinationDropdownOpen] = useState(false);
+  const destinationDropdownRef = useRef(null);
+
+  // Load live destinations from database
+  useEffect(() => {
+    let isMounted = true;
+    const fetchDestinations = async () => {
+      try {
+        const res = await api.getDestinations();
+        if (isMounted && res && res.destinations && res.destinations.length > 0) {
+          setDestinationsList(res.destinations);
+        }
+      } catch (err) {
+        console.warn('Failed to load destinations for planner dropdown:', err);
+      }
+    };
+    fetchDestinations();
+    return () => { isMounted = false; };
+  }, []);
+
+  // Close destination dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (destinationDropdownRef.current && !destinationDropdownRef.current.contains(event.target)) {
+        setIsDestinationDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Sync if initial props change
   useEffect(() => {
     if (initialDestination) setDestination(initialDestination);
     if (initialBudget) setBudget(initialBudget);
     if (initialDuration) setDuration(initialDuration);
   }, [initialDestination, initialBudget, initialDuration]);
 
+  // Filter destinations dynamically for dropdown
+  const filteredDestinations = destinationsList.filter(d => {
+    const q = (destination || '').trim().toLowerCase();
+    if (!q) return true;
+    const nameMatch = d.name && d.name.toLowerCase().includes(q);
+    const cityMatch = d.city && d.city.toLowerCase().includes(q);
+    const countryMatch = d.country && d.country.toLowerCase().includes(q);
+    return nameMatch || cityMatch || countryMatch;
+  });
+
   const handleGeneratePlan = async () => {
+    if (!destination || !destination.trim()) {
+      showToast('Please enter or select a destination.', 'error');
+      return;
+    }
+    const cleanBudget = Number(budget) || 2000;
+    if (cleanBudget <= 0) {
+      showToast('Please enter a valid budget amount.', 'error');
+      return;
+    }
     setIsGenerating(true);
     try {
       const res = await api.generateItinerary({
-        destination,
-        budget,
+        destination: destination.trim(),
+        budget: cleanBudget,
         duration_days: duration,
         travelers_count: travelers,
         travel_style: travelStyle,
@@ -1084,15 +1174,81 @@ function BudgetPlannerTab({ initialDestination, initialBudget, initialDuration, 
             <i className="fa-solid fa-sliders text-brand-600"></i>
           </h3>
 
-          <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Destination</label>
-            <input
-              type="text"
-              value={destination}
-              onChange={e => setDestination(e.target.value)}
-              placeholder="e.g. Tokyo, Japan or Paris, France"
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold focus:ring-2 focus:ring-brand-500 focus:outline-none"
-            />
+          {/* Destination (Typeable with Dropdown Menu) */}
+          <div className="relative" ref={destinationDropdownRef}>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-bold text-slate-700 uppercase">Destination</label>
+              <span className="text-[10px] text-slate-400">Type or select below</span>
+            </div>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <i className="fa-solid fa-location-dot text-brand-500 text-sm"></i>
+              </div>
+              <input
+                type="text"
+                value={destination}
+                onChange={e => {
+                  setDestination(e.target.value);
+                  setIsDestinationDropdownOpen(true);
+                }}
+                onFocus={() => setIsDestinationDropdownOpen(true)}
+                placeholder="e.g. Tokyo, Japan or Paris, France"
+                className="w-full pl-9 pr-10 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold focus:ring-2 focus:ring-brand-500 focus:outline-none bg-white transition"
+                autoComplete="off"
+              />
+              <button
+                type="button"
+                onClick={() => setIsDestinationDropdownOpen(prev => !prev)}
+                className="absolute inset-y-0 right-0 px-3.5 flex items-center text-slate-400 hover:text-brand-600 focus:outline-none transition-colors"
+                title="Toggle destination menu"
+                aria-label="Toggle destination menu"
+              >
+                <i className={`fa-solid fa-chevron-down text-xs transition-transform duration-200 ${isDestinationDropdownOpen ? 'rotate-180 text-brand-600' : ''}`}></i>
+              </button>
+            </div>
+
+            {/* Dropdown Menu */}
+            {isDestinationDropdownOpen && (
+              <div className="absolute z-30 left-0 right-0 mt-1.5 bg-white rounded-xl border border-slate-200 shadow-xl max-h-60 overflow-y-auto divide-y divide-slate-100">
+                {filteredDestinations.length > 0 ? (
+                  filteredDestinations.map((dest, idx) => {
+                    const destName = dest.name || `${dest.city}, ${dest.country}`;
+                    const isSelected = destination.toLowerCase().trim() === destName.toLowerCase().trim();
+                    return (
+                      <div
+                        key={dest.id || idx}
+                        onClick={() => {
+                          setDestination(destName);
+                          setIsDestinationDropdownOpen(false);
+                        }}
+                        className={`px-3.5 py-2.5 text-sm cursor-pointer flex items-center justify-between transition-colors ${
+                          isSelected ? 'bg-brand-50 text-brand-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                        }`}
+                      >
+                        <div className="flex items-center space-x-2.5">
+                          <i className={`fa-solid fa-map-pin text-xs ${isSelected ? 'text-brand-600' : 'text-slate-400'}`}></i>
+                          <span>{destName}</span>
+                        </div>
+                        {dest.country && (
+                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                            isSelected ? 'bg-brand-100 text-brand-800' : 'bg-slate-100 text-slate-500'
+                          }`}>
+                            {dest.country}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="px-3.5 py-3 text-xs text-slate-500">
+                    <div className="font-semibold text-slate-700">Custom Destination</div>
+                    <div className="mt-0.5 text-slate-400">
+                      Using "<span className="text-slate-700 font-medium">{destination}</span>" for trip calculation.
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div>
@@ -1106,25 +1262,61 @@ function BudgetPlannerTab({ initialDestination, initialBudget, initialDuration, 
             />
           </div>
 
-          {/* Budget Slider with Convertible Currency */}
-          <div className="bg-brand-50/50 p-4 rounded-2xl border border-brand-100">
-            <div className="flex justify-between items-center mb-1">
-              <span className="text-xs font-bold text-slate-700 uppercase">Total Budget</span>
-              <span className="text-base font-extrabold text-brand-700">{formatCurrency(budget, currency)}</span>
+          {/* Budget Slider & Direct Text Box Input (with Convertible Currency) */}
+          <div className="bg-brand-50/50 p-4 rounded-2xl border border-brand-100 space-y-3">
+            <div className="flex justify-between items-center">
+              <div>
+                <span className="text-xs font-bold text-slate-700 uppercase block">Total Budget ({currency})</span>
+                <span className="text-[10px] text-slate-400">Slider or type amount</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                {currency === 'INR' && (
+                  <span className="text-xs font-bold text-emerald-600">
+                    ≈ {formatCurrency(budget, currency)}
+                  </span>
+                )}
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-xs font-bold text-brand-600">
+                    $
+                  </span>
+                  <input
+                    type="number"
+                    min="100"
+                    step="50"
+                    value={budget}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setBudget(val === '' ? '' : Number(val));
+                    }}
+                    onBlur={() => {
+                      if (budget === '' || Number(budget) < 100) {
+                        setBudget(500);
+                      }
+                    }}
+                    placeholder="3000"
+                    className="w-28 pl-6 pr-2 py-1.5 bg-white border border-brand-200 rounded-xl text-sm font-extrabold text-brand-700 text-right focus:ring-2 focus:ring-brand-500 focus:outline-none shadow-sm"
+                    aria-label="Total budget in USD"
+                  />
+                </div>
+                <span className="text-xs font-bold text-slate-500">USD</span>
+              </div>
             </div>
-            <input
-              type="range"
-              min="500"
-              max="15000"
-              step="100"
-              value={budget}
-              onChange={e => setBudget(Number(e.target.value))}
-              className="w-full accent-brand-600 cursor-pointer"
-            />
-            <div className="flex justify-between text-[10px] text-slate-400 mt-1">
-              <span>{formatCurrency(500, currency)}</span>
-              <span>{formatCurrency(7500, currency)}</span>
-              <span>{formatCurrency(15000, currency)}</span>
+
+            <div>
+              <input
+                type="range"
+                min="500"
+                max={Math.max(15000, Number(budget) || 15000)}
+                step="100"
+                value={Number(budget) || 500}
+                onChange={e => setBudget(Number(e.target.value))}
+                className="w-full accent-brand-600 cursor-pointer"
+              />
+              <div className="flex justify-between text-[10px] text-slate-400 mt-1 font-medium">
+                <span>{formatCurrency(500, currency)}</span>
+                <span>{formatCurrency(7500, currency)}</span>
+                <span>{formatCurrency(Math.max(15000, Number(budget) || 15000), currency)}</span>
+              </div>
             </div>
           </div>
 
