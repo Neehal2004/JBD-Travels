@@ -77,10 +77,12 @@ const api = {
     return res;
   },
 
-  async login(emailOrUsername, password) {
+  async login(emailOrUsername, password, role = null) {
+    const payload = { email_or_username: emailOrUsername, password };
+    if (role) payload.role = role;
     const res = await this.request('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email_or_username: emailOrUsername, password })
+      body: JSON.stringify(payload)
     });
     if (res.token) {
       this.setToken(res.token);
@@ -188,6 +190,10 @@ const api = {
   // Admin & Management
   async getAdminDashboard() {
     return await this.request('/admin/dashboard');
+  },
+
+  async getAgentSummary() {
+    return await this.request('/admin/agent-summary');
   },
 
   async getAdminHotels() {

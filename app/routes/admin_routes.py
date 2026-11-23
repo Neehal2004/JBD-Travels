@@ -6,9 +6,9 @@ from ..services.analytics_service import AnalyticsService
 admin_bp = Blueprint('admin', __name__, url_prefix='/api/admin')
 
 @admin_bp.route('/dashboard', methods=['GET'])
-@roles_required(['employee', 'admin'])
+@roles_required(['admin'])
 def get_dashboard_data(current_user):
-    """Retrieves all executive KPIs, charts, and financial analytics"""
+    """Retrieves executive financial KPIs, charts, and administrative analytics (Admin Only)"""
     summary = AnalyticsService.get_dashboard_summary()
     return jsonify({
         'success': True,
@@ -16,10 +16,31 @@ def get_dashboard_data(current_user):
         **summary
     })
 
+@admin_bp.route('/agent-summary', methods=['GET'])
+@roles_required(['employee', 'admin'])
+def get_agent_summary(current_user):
+    """Retrieves client travel bookings and inquiry queue for Travel Agents"""
+    inquiries = BookingInquiry.query.order_by(BookingInquiry.created_at.desc()).all()
+    pending = [inq for inq in inquiries if inq.status == 'Pending']
+    in_review = [inq for inq in inquiries if inq.status == 'In Review']
+    confirmed = [inq for inq in inquiries if inq.status == 'Confirmed']
+
+    return jsonify({
+        'success': True,
+        'user_role': current_user.role,
+        'stats': {
+            'total_inquiries': len(inquiries),
+            'pending_count': len(pending),
+            'in_review_count': len(in_review),
+            'confirmed_count': len(confirmed)
+        },
+        'inquiries': [inq.to_dict() for inq in inquiries]
+    })
+
 # ----------------- PARTNER HOTEL MANAGEMENT (CRUD) -----------------
 
 @admin_bp.route('/hotels', methods=['GET'])
-@roles_required(['employee', 'admin'])
+@roles_required(['admin'])
 def list_hotels(current_user):
     hotels = Hotel.query.order_by(Hotel.created_at.desc()).all()
     return jsonify({

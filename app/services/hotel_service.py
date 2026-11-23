@@ -67,7 +67,6 @@ class HotelService:
                 'booking_com_rate': booking_rate,
                 'jbd_exclusive_partner_rate': partner,
                 'discount_percent': h.partner_discount_percent,
-                'jbd_commission_percent': h.jbd_commission_percent,
                 'customer_savings_vs_competitor': max(0.0, jbd_savings),
                 'best_price_guarantee': True
             }
@@ -104,7 +103,6 @@ class HotelService:
             'booking_com_rate': round(standard * 0.96, 2),
             'jbd_exclusive_partner_rate': partner,
             'discount_percent': hotel.partner_discount_percent,
-            'jbd_commission_percent': hotel.jbd_commission_percent,
             'customer_savings_vs_competitor': round(max(0.0, (standard * 0.96) - partner), 2),
             'best_price_guarantee': True
         }

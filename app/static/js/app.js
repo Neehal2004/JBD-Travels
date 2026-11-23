@@ -1,9 +1,29 @@
 /**
  * JBD Travels - AI-Assisted Travel Planning and Management System
- * Single Page Application Component Architecture
+ * Production-Grade Single Page Application Component Architecture
  */
 
 const { useState, useEffect, useRef } = React;
+
+// Global Exchange Rate (1 USD = 83.50 INR)
+const USD_TO_INR = 83.50;
+
+/**
+ * Global Currency Formatting Helper
+ * Seamlessly converts and formats USD and INR currencies.
+ */
+function formatCurrency(amountUsd, currency = 'USD') {
+  if (amountUsd === null || amountUsd === undefined) return '';
+  const num = Number(amountUsd);
+  if (isNaN(num)) return amountUsd;
+
+  if (currency === 'INR') {
+    const inrValue = Math.round(num * USD_TO_INR);
+    return '₹ ' + inrValue.toLocaleString('en-IN');
+  } else {
+    return '$ ' + Math.round(num).toLocaleString('en-US');
+  }
+}
 
 // ----------------------------------------------------
 // TOAST NOTIFICATION COMPONENT
@@ -14,9 +34,9 @@ function ToastContainer({ toasts, removeToast }) {
       {toasts.map(toast => (
         <div
           key={toast.id}
-          className={`pointer-events-auto flex items-center p-4 rounded-xl shadow-xl text-white transform transition-all duration-300 ${
+          className={`pointer-events-auto flex items-center p-4 rounded-2xl shadow-2xl text-white transform transition-all duration-300 border border-white/10 ${
             toast.type === 'success' ? 'bg-emerald-600' :
-            toast.type === 'error' ? 'bg-rose-600' : 'bg-slate-800'
+            toast.type === 'error' ? 'bg-rose-600' : 'bg-slate-900'
           }`}
         >
           <div className="mr-3 text-lg">
@@ -38,15 +58,16 @@ function ToastContainer({ toasts, removeToast }) {
 }
 
 // ----------------------------------------------------
-// AUTH MODAL COMPONENT (Module 1: Authentication & Roles)
+// AUTH MODAL COMPONENT (Module 1: Production Authentication)
 // ----------------------------------------------------
 function AuthModal({ isOpen, onClose, onAuthSuccess, showToast }) {
   const [isRegister, setIsRegister] = useState(false);
+  const [selectedRole, setSelectedRole] = useState('customer'); // 'customer', 'employee', 'admin'
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
-  const [role, setRole] = useState('customer');
+  const [nationality, setNationality] = useState('United States');
   const [loading, setLoading] = useState(false);
 
   if (!isOpen) return null;
@@ -61,13 +82,14 @@ function AuthModal({ isOpen, onClose, onAuthSuccess, showToast }) {
           email,
           password,
           full_name: fullName,
-          role
+          role: selectedRole,
+          nationality
         });
         showToast(res.message, 'success');
         onAuthSuccess(res.user);
         onClose();
       } else {
-        const res = await api.login(email || username, password);
+        const res = await api.login(email || username, password, selectedRole);
         showToast(res.message, 'success');
         onAuthSuccess(res.user);
         onClose();
@@ -79,77 +101,96 @@ function AuthModal({ isOpen, onClose, onAuthSuccess, showToast }) {
     }
   };
 
-  // Quick Demo Login Handler
-  const handleQuickLogin = async (demoEmail, demoPassword) => {
-    setLoading(true);
-    try {
-      const res = await api.login(demoEmail, demoPassword);
-      showToast(`Logged in as ${res.user.full_name} (${res.user.role})`, 'success');
-      onAuthSuccess(res.user);
-      onClose();
-    } catch (err) {
-      showToast(err.message, 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl relative border border-slate-100 animate-fadeIn">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
+      <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative border border-slate-100 animate-fadeIn">
         <button
           onClick={onClose}
-          className="absolute top-5 right-5 text-slate-400 hover:text-slate-600 w-8 h-8 rounded-full flex items-center justify-center hover:bg-slate-100"
+          className="absolute top-5 right-5 text-slate-400 hover:text-slate-600 w-9 h-9 rounded-full flex items-center justify-center hover:bg-slate-100 transition"
         >
           <i className="fa-solid fa-xmark text-lg"></i>
         </button>
 
+        {/* Modal Branding Header */}
         <div className="text-center mb-6">
-          <div className="w-12 h-12 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center mx-auto mb-3 text-2xl">
+          <div className="w-12 h-12 rounded-2xl gradient-jbd text-white flex items-center justify-center mx-auto mb-3 text-2xl shadow-lg shadow-brand-600/25">
             <i className="fa-solid fa-plane-departure"></i>
           </div>
-          <h3 className="text-2xl font-bold text-slate-800">
-            {isRegister ? 'Create JBD Travels Account' : 'Welcome to JBD Travels'}
+          <h3 className="text-2xl font-black text-slate-900 tracking-tight">
+            {isRegister ? 'Create JBD Travels Account' : 'Sign In to JBD Travels'}
           </h3>
-          <p className="text-slate-500 text-sm mt-1">
-            {isRegister ? 'Join our club for exclusive partner rates & AI planning' : 'Sign in to access your itineraries & partner discounts'}
+          <p className="text-slate-500 text-xs mt-1">
+            {isRegister
+              ? 'Join our global travel network with role-tailored features.'
+              : 'Secure role-based portal access with encrypted credentials.'}
           </p>
         </div>
 
-        {/* Demo Fast Login Buttons */}
-        <div className="mb-5 bg-slate-50 p-3 rounded-xl border border-slate-200">
-          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 text-center">
-            ⚡ Quick Demo Accounts (1-Click)
-          </div>
+        {/* SUITABLE ROLE SELECTION SECTION */}
+        <div className="mb-6">
+          <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">
+            Select Account Role & Portal
+          </label>
           <div className="grid grid-cols-3 gap-2">
             <button
               type="button"
-              onClick={() => handleQuickLogin('customer@jbdtravels.com', 'Customer123!')}
-              className="text-xs py-1.5 px-2 bg-white border border-slate-200 rounded-lg font-medium text-slate-700 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700 transition"
+              onClick={() => setSelectedRole('customer')}
+              className={`p-3 rounded-2xl border text-center transition flex flex-col items-center justify-center space-y-1.5 ${
+                selectedRole === 'customer'
+                  ? 'border-emerald-500 bg-emerald-50/80 text-emerald-900 shadow-sm ring-2 ring-emerald-500/20'
+                  : 'border-slate-200 bg-slate-50/60 text-slate-600 hover:bg-slate-100'
+              }`}
             >
-              <i className="fa-solid fa-user mr-1 text-emerald-600"></i> Customer
+              <i className="fa-solid fa-user text-base text-emerald-600"></i>
+              <span className="text-xs font-bold leading-tight">Customer</span>
+              <span className="text-[10px] text-slate-400 font-normal">Traveler</span>
             </button>
+
             <button
               type="button"
-              onClick={() => handleQuickLogin('agent@jbdtravels.com', 'Agent123!')}
-              className="text-xs py-1.5 px-2 bg-white border border-slate-200 rounded-lg font-medium text-slate-700 hover:bg-brand-50 hover:border-brand-300 hover:text-brand-700 transition"
+              onClick={() => setSelectedRole('employee')}
+              className={`p-3 rounded-2xl border text-center transition flex flex-col items-center justify-center space-y-1.5 ${
+                selectedRole === 'employee'
+                  ? 'border-brand-500 bg-brand-50/80 text-brand-900 shadow-sm ring-2 ring-brand-500/20'
+                  : 'border-slate-200 bg-slate-50/60 text-slate-600 hover:bg-slate-100'
+              }`}
             >
-              <i className="fa-solid fa-headset mr-1 text-brand-600"></i> Agent
+              <i className="fa-solid fa-headset text-base text-brand-600"></i>
+              <span className="text-xs font-bold leading-tight">Agent</span>
+              <span className="text-[10px] text-slate-400 font-normal">Employee</span>
             </button>
+
             <button
               type="button"
-              onClick={() => handleQuickLogin('admin@jbdtravels.com', 'Admin123!')}
-              className="text-xs py-1.5 px-2 bg-white border border-slate-200 rounded-lg font-medium text-slate-700 hover:bg-purple-50 hover:border-purple-300 hover:text-purple-700 transition"
+              onClick={() => setSelectedRole('admin')}
+              className={`p-3 rounded-2xl border text-center transition flex flex-col items-center justify-center space-y-1.5 ${
+                selectedRole === 'admin'
+                  ? 'border-purple-500 bg-purple-50/80 text-purple-900 shadow-sm ring-2 ring-purple-500/20'
+                  : 'border-slate-200 bg-slate-50/60 text-slate-600 hover:bg-slate-100'
+              }`}
             >
-              <i className="fa-solid fa-shield-halved mr-1 text-purple-600"></i> Admin
+              <i className="fa-solid fa-shield-halved text-base text-purple-600"></i>
+              <span className="text-xs font-bold leading-tight">Admin</span>
+              <span className="text-[10px] text-slate-400 font-normal">Executive</span>
             </button>
+          </div>
+
+          {/* Role Portal Context Description */}
+          <div className="mt-2 text-[11px] text-slate-500 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200/80 flex items-center space-x-1.5">
+            <i className="fa-solid fa-circle-info text-brand-600 text-[10px]"></i>
+            <span>
+              {selectedRole === 'customer' && 'Customer Portal: AI travel planning, budget optimization, and partner hotel discounts.'}
+              {selectedRole === 'employee' && 'Agent Portal: Customer booking inquiries, custom trip itineraries, and reservation quotes.'}
+              {selectedRole === 'admin' && 'Admin Portal: Executive revenue metrics, partner hotel CRUD, commissions, and system governance.'}
+            </span>
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Input Form */}
+        <form onSubmit={handleSubmit} className="space-y-3.5">
           {isRegister && (
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Full Name</label>
+              <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Full Name</label>
               <input
                 type="text"
                 required
@@ -162,20 +203,25 @@ function AuthModal({ isOpen, onClose, onAuthSuccess, showToast }) {
           )}
 
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Username or Email</label>
+            <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+              Username or Email
+            </label>
             <input
               type="text"
               required
               value={email}
               onChange={e => setEmail(e.target.value)}
-              placeholder="customer@jbdtravels.com"
+              placeholder={
+                selectedRole === 'admin' ? 'admin@jbdtravels.com' :
+                selectedRole === 'employee' ? 'agent@jbdtravels.com' : 'user@example.com'
+              }
               className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
             />
           </div>
 
           {isRegister && (
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Username</label>
+              <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Username</label>
               <input
                 type="text"
                 required
@@ -188,7 +234,7 @@ function AuthModal({ isOpen, onClose, onAuthSuccess, showToast }) {
           )}
 
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Password</label>
+            <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Password</label>
             <input
               type="password"
               required
@@ -199,42 +245,37 @@ function AuthModal({ isOpen, onClose, onAuthSuccess, showToast }) {
             />
           </div>
 
-          {isRegister && (
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Account Role</label>
-              <select
-                value={role}
-                onChange={e => setRole(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
-              >
-                <option value="customer">Customer / Traveler</option>
-                <option value="employee">Travel Agent / Employee</option>
-                <option value="admin">System Administrator</option>
-              </select>
-            </div>
-          )}
-
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-semibold text-sm shadow-lg shadow-brand-500/25 transition flex items-center justify-center space-x-2"
+            className={`w-full py-3.5 text-white rounded-xl font-bold text-sm shadow-lg transition flex items-center justify-center space-x-2 ${
+              selectedRole === 'admin'
+                ? 'bg-purple-600 hover:bg-purple-700 shadow-purple-600/25'
+                : selectedRole === 'employee'
+                ? 'bg-brand-600 hover:bg-brand-700 shadow-brand-600/25'
+                : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/25'
+            }`}
           >
             {loading ? (
               <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
             ) : (
-              <span>{isRegister ? 'Create Account' : 'Sign In to JBD Travels'}</span>
+              <span>
+                {isRegister
+                  ? `Register as ${selectedRole === 'admin' ? 'Administrator' : selectedRole === 'employee' ? 'Travel Agent' : 'Customer'}`
+                  : `Sign In as ${selectedRole === 'admin' ? 'Administrator' : selectedRole === 'employee' ? 'Travel Agent' : 'Customer'}`}
+              </span>
             )}
           </button>
         </form>
 
         <div className="mt-5 text-center text-xs text-slate-500">
-          {isRegister ? 'Already have an account?' : "Don't have an account yet?"}{' '}
+          {isRegister ? 'Already registered?' : "Need a new account?"}{' '}
           <button
             type="button"
             onClick={() => setIsRegister(!isRegister)}
-            className="text-brand-600 font-semibold hover:underline"
+            className="text-brand-600 font-bold hover:underline"
           >
-            {isRegister ? 'Sign In' : 'Register Now'}
+            {isRegister ? 'Sign In Instead' : 'Register Now'}
           </button>
         </div>
       </div>
@@ -243,9 +284,9 @@ function AuthModal({ isOpen, onClose, onAuthSuccess, showToast }) {
 }
 
 // ----------------------------------------------------
-// NAVBAR COMPONENT (Module 1)
+// NAVBAR COMPONENT (Production Level with Currency Converter)
 // ----------------------------------------------------
-function Navbar({ activeTab, setActiveTab, currentUser, onOpenAuth, onLogout, onQuickSwitchRole }) {
+function Navbar({ activeTab, setActiveTab, currentUser, onOpenAuth, onLogout, currency, setCurrency }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
@@ -253,7 +294,7 @@ function Navbar({ activeTab, setActiveTab, currentUser, onOpenAuth, onLogout, on
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           
-          {/* Logo */}
+          {/* Brand Logo */}
           <div className="flex items-center space-x-3 cursor-pointer" onClick={() => setActiveTab('explore')}>
             <div className="w-10 h-10 rounded-xl gradient-jbd flex items-center justify-center text-white text-xl shadow-md shadow-brand-600/20">
               <i className="fa-solid fa-plane-departure"></i>
@@ -262,12 +303,12 @@ function Navbar({ activeTab, setActiveTab, currentUser, onOpenAuth, onLogout, on
               <span className="text-xl font-black tracking-tight text-slate-900">JBD</span>
               <span className="text-xl font-light text-brand-600 ml-1">Travels</span>
               <span className="hidden sm:inline-block ml-2 text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-200">
-                AI Engine
+                Enterprise
               </span>
             </div>
           </div>
 
-          {/* Navigation Tabs */}
+          {/* Navigation Tabs (Strictly Role-Protected) */}
           <div className="hidden lg:flex items-center space-x-1">
             <button
               onClick={() => setActiveTab('explore')}
@@ -314,67 +355,92 @@ function Navbar({ activeTab, setActiveTab, currentUser, onOpenAuth, onLogout, on
               <i className="fa-solid fa-passport mr-1.5 text-rose-500"></i> Visa & Docs
             </button>
 
-            <button
-              onClick={() => setActiveTab('itineraries')}
-              className={`px-3.5 py-2 rounded-xl text-sm font-semibold transition ${
-                activeTab === 'itineraries' ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-              }`}
-            >
-              <i className="fa-solid fa-bookmark mr-1.5 text-amber-500"></i> My Trips
-            </button>
+            {/* My Trips Tab (Visible to authenticated customers & users) */}
+            {currentUser && (
+              <button
+                onClick={() => setActiveTab('itineraries')}
+                className={`px-3.5 py-2 rounded-xl text-sm font-semibold transition ${
+                  activeTab === 'itineraries' ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                }`}
+              >
+                <i className="fa-solid fa-bookmark mr-1.5 text-amber-500"></i> My Trips
+              </button>
+            )}
 
-            {/* Admin & Management Tab */}
-            <button
-              onClick={() => setActiveTab('admin')}
-              className={`px-3.5 py-2 rounded-xl text-sm font-semibold transition flex items-center ${
-                activeTab === 'admin'
-                  ? 'bg-purple-50 text-purple-700 border border-purple-200'
-                  : 'text-purple-600 hover:bg-purple-50'
-              }`}
-            >
-              <i className="fa-solid fa-chart-pie mr-1.5"></i> Admin Dashboard
-              {currentUser && currentUser.role === 'admin' && (
-                <span className="ml-1.5 px-1.5 py-0.2 text-[9px] uppercase font-bold rounded bg-purple-600 text-white">Admin</span>
-              )}
-            </button>
+            {/* ONLY Agent can see and access the Agent Dashboard */}
+            {currentUser && currentUser.role === 'employee' && (
+              <button
+                onClick={() => setActiveTab('agent')}
+                className={`px-3.5 py-2 rounded-xl text-sm font-bold transition flex items-center ${
+                  activeTab === 'agent'
+                    ? 'bg-brand-600 text-white shadow-md shadow-brand-600/20'
+                    : 'bg-brand-50 text-brand-700 hover:bg-brand-100 border border-brand-200'
+                }`}
+              >
+                <i className="fa-solid fa-headset mr-1.5"></i> Agent Portal
+              </button>
+            )}
+
+            {/* ONLY Admin can see and access the Admin Dashboard */}
+            {currentUser && currentUser.role === 'admin' && (
+              <button
+                onClick={() => setActiveTab('admin')}
+                className={`px-3.5 py-2 rounded-xl text-sm font-bold transition flex items-center ${
+                  activeTab === 'admin'
+                    ? 'bg-purple-600 text-white shadow-md shadow-purple-600/20'
+                    : 'bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200'
+                }`}
+              >
+                <i className="fa-solid fa-shield-halved mr-1.5"></i> Admin Dashboard
+              </button>
+            )}
           </div>
 
-          {/* User Profile / Auth Area */}
+          {/* Right Controls: Convertible Currency Switcher & User Authentication */}
           <div className="flex items-center space-x-3">
-            {currentUser ? (
-              <div className="flex items-center space-x-2">
-                {/* Role Switcher Pill */}
-                <div className="hidden md:flex items-center bg-slate-100 rounded-xl p-1 border border-slate-200 text-xs">
-                  <span className="px-2 font-medium text-slate-500">Role:</span>
-                  <button
-                    onClick={() => onQuickSwitchRole('customer')}
-                    className={`px-2 py-0.5 rounded-lg font-semibold transition ${currentUser.role === 'customer' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                  >
-                    Customer
-                  </button>
-                  <button
-                    onClick={() => onQuickSwitchRole('employee')}
-                    className={`px-2 py-0.5 rounded-lg font-semibold transition ${currentUser.role === 'employee' ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                  >
-                    Agent
-                  </button>
-                  <button
-                    onClick={() => onQuickSwitchRole('admin')}
-                    className={`px-2 py-0.5 rounded-lg font-semibold transition ${currentUser.role === 'admin' ? 'bg-white text-purple-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                  >
-                    Admin
-                  </button>
-                </div>
+            
+            {/* CONVERTIBLE CURRENCY SELECTOR (USD & INR) */}
+            <div className="flex items-center bg-slate-100 rounded-xl p-1 border border-slate-200 text-xs shadow-inner">
+              <button
+                type="button"
+                onClick={() => setCurrency('USD')}
+                className={`px-2.5 py-1 rounded-lg font-extrabold transition flex items-center space-x-1 ${
+                  currency === 'USD'
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+                title="Convert all prices to US Dollars"
+              >
+                <span>🇺🇸 USD</span>
+                <span className="text-[10px] text-slate-400">($)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setCurrency('INR')}
+                className={`px-2.5 py-1 rounded-lg font-extrabold transition flex items-center space-x-1 ${
+                  currency === 'INR'
+                    ? 'bg-white text-emerald-800 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+                title="Convert all prices to Indian Rupees (1 USD = ₹83.50)"
+              >
+                <span>🇮🇳 INR</span>
+                <span className="text-[10px] text-emerald-600">(₹)</span>
+              </button>
+            </div>
 
-                <div className="flex items-center space-x-2 pl-2">
-                  <div className="w-8 h-8 rounded-full bg-brand-600 text-white flex items-center justify-center font-bold text-xs uppercase shadow">
-                    {currentUser.username ? currentUser.username.substring(0, 2) : 'US'}
+            {/* User Profile or Sign In */}
+            {currentUser ? (
+              <div className="flex items-center space-x-2.5 pl-1">
+                <div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-xs uppercase shadow">
+                  {currentUser.username ? currentUser.username.substring(0, 2) : 'US'}
+                </div>
+                <div className="hidden sm:block text-left">
+                  <div className="text-xs font-bold text-slate-800 leading-tight">
+                    {currentUser.full_name || currentUser.username}
                   </div>
-                  <div className="hidden sm:block text-left">
-                    <div className="text-xs font-bold text-slate-800 leading-tight">
-                      {currentUser.full_name || currentUser.username}
-                    </div>
-                    <div className="text-[10px] text-slate-500 capitalize">{currentUser.role}</div>
+                  <div className="text-[10px] font-semibold text-slate-500 capitalize flex items-center space-x-1">
+                    <span>{currentUser.role === 'employee' ? 'Travel Agent' : currentUser.role}</span>
                   </div>
                 </div>
 
@@ -389,10 +455,10 @@ function Navbar({ activeTab, setActiveTab, currentUser, onOpenAuth, onLogout, on
             ) : (
               <button
                 onClick={onOpenAuth}
-                className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-sm font-semibold shadow-md shadow-brand-500/20 transition flex items-center space-x-1.5"
+                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-md shadow-slate-900/20 transition flex items-center space-x-1.5"
               >
                 <i className="fa-solid fa-user-circle"></i>
-                <span>Sign In / Demo</span>
+                <span>Sign In / Register</span>
               </button>
             )}
 
@@ -440,18 +506,30 @@ function Navbar({ activeTab, setActiveTab, currentUser, onOpenAuth, onLogout, on
           >
             Visa & Documentation
           </button>
-          <button
-            onClick={() => { setActiveTab('itineraries'); setMobileMenuOpen(false); }}
-            className="w-full text-left px-3 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:bg-brand-50"
-          >
-            My Trips
-          </button>
-          <button
-            onClick={() => { setActiveTab('admin'); setMobileMenuOpen(false); }}
-            className="w-full text-left px-3 py-2 rounded-lg text-sm font-semibold text-purple-700 hover:bg-purple-50"
-          >
-            Admin Dashboard
-          </button>
+          {currentUser && (
+            <button
+              onClick={() => { setActiveTab('itineraries'); setMobileMenuOpen(false); }}
+              className="w-full text-left px-3 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:bg-brand-50"
+            >
+              My Trips
+            </button>
+          )}
+          {currentUser && currentUser.role === 'employee' && (
+            <button
+              onClick={() => { setActiveTab('agent'); setMobileMenuOpen(false); }}
+              className="w-full text-left px-3 py-2 rounded-lg text-sm font-bold text-brand-700 bg-brand-50"
+            >
+              Agent Portal
+            </button>
+          )}
+          {currentUser && currentUser.role === 'admin' && (
+            <button
+              onClick={() => { setActiveTab('admin'); setMobileMenuOpen(false); }}
+              className="w-full text-left px-3 py-2 rounded-lg text-sm font-bold text-purple-700 bg-purple-50"
+            >
+              Admin Dashboard
+            </button>
+          )}
         </div>
       )}
     </nav>
@@ -461,7 +539,7 @@ function Navbar({ activeTab, setActiveTab, currentUser, onOpenAuth, onLogout, on
 // ----------------------------------------------------
 // MODULE 3: AI-ASSISTED RECOMMENDATIONS & EXPLORE
 // ----------------------------------------------------
-function ExploreTab({ onSelectDestinationForPlan, showToast }) {
+function ExploreTab({ onSelectDestinationForPlan, showToast, currency }) {
   const [destinations, setDestinations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedPrefs, setSelectedPrefs] = useState(['culture', 'sightseeing', 'foodie']);
@@ -646,12 +724,12 @@ function ExploreTab({ onSelectDestinationForPlan, showToast }) {
             </div>
           </div>
 
-          {/* Budget & Duration Inputs */}
+          {/* Budget & Duration Inputs (with Convertible Currency) */}
           <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/70 space-y-4">
             <div>
               <div className="flex justify-between items-center mb-1">
-                <span className="text-xs font-bold text-slate-700">Total Budget (USD)</span>
-                <span className="text-sm font-extrabold text-brand-600">${budgetSlider.toLocaleString()}</span>
+                <span className="text-xs font-bold text-slate-700">Total Budget ({currency})</span>
+                <span className="text-sm font-extrabold text-brand-600">{formatCurrency(budgetSlider, currency)}</span>
               </div>
               <input
                 type="range"
@@ -738,7 +816,7 @@ function ExploreTab({ onSelectDestinationForPlan, showToast }) {
                   <div className="p-5 pt-0 flex items-center justify-between border-t border-slate-100 mt-3 pt-3">
                     <div>
                       <div className="text-[11px] text-slate-400">Avg Mid-tier Daily Cost</div>
-                      <div className="text-sm font-bold text-slate-800">${rec.destination.avg_cost_per_day_mid} / day</div>
+                      <div className="text-sm font-bold text-slate-800">{formatCurrency(rec.destination.avg_cost_per_day_mid, currency)} / day</div>
                     </div>
                     <button
                       onClick={() => onSelectDestinationForPlan(rec.destination.name, budgetSlider, durationDays)}
@@ -804,7 +882,7 @@ function ExploreTab({ onSelectDestinationForPlan, showToast }) {
                 <div className="p-4 pt-0 flex items-center justify-between border-t border-slate-100 pt-3">
                   <div>
                     <span className="text-[10px] text-slate-400 block">From</span>
-                    <span className="text-sm font-bold text-slate-800">${dest.avg_cost_per_day_budget}</span>
+                    <span className="text-sm font-bold text-slate-800">{formatCurrency(dest.avg_cost_per_day_budget, currency)}</span>
                     <span className="text-[10px] text-slate-500"> /day</span>
                   </div>
                   <div className="flex space-x-1.5">
@@ -891,7 +969,7 @@ function ExploreTab({ onSelectDestinationForPlan, showToast }) {
                           </div>
                           <p className="text-xs text-slate-500 mt-0.5">{attr.description}</p>
                           <div className="text-[10px] text-slate-400 mt-1">
-                            Duration: ~{attr.estimated_duration_hours}h • Ticket: {attr.ticket_price_usd === 0 ? 'Free' : `$${attr.ticket_price_usd}`}
+                            Duration: ~{attr.estimated_duration_hours}h • Ticket: {attr.ticket_price_usd === 0 ? 'Free' : formatCurrency(attr.ticket_price_usd, currency)}
                           </div>
                         </div>
                       </div>
@@ -930,7 +1008,7 @@ function ExploreTab({ onSelectDestinationForPlan, showToast }) {
 // ----------------------------------------------------
 // MODULE 2: BUDGET-BASED TRAVEL PLANNING COMPONENT
 // ----------------------------------------------------
-function BudgetPlannerTab({ initialDestination, initialBudget, initialDuration, currentUser, showToast, setActiveTab }) {
+function BudgetPlannerTab({ initialDestination, initialBudget, initialDuration, currentUser, showToast, setActiveTab, currency }) {
   const [destination, setDestination] = useState(initialDestination || 'Tokyo, Japan');
   const [budget, setBudget] = useState(initialBudget || 3000);
   const [duration, setDuration] = useState(initialDuration || 5);
@@ -947,7 +1025,6 @@ function BudgetPlannerTab({ initialDestination, initialBudget, initialDuration, 
   const [inquirySpecialReq, setInquirySpecialReq] = useState('');
   const [isSubmittingInquiry, setIsSubmittingInquiry] = useState(false);
 
-  // Sync if initial props change
   useEffect(() => {
     if (initialDestination) setDestination(initialDestination);
     if (initialBudget) setBudget(initialBudget);
@@ -978,6 +1055,10 @@ function BudgetPlannerTab({ initialDestination, initialBudget, initialDuration, 
 
   const handleSaveItinerary = async () => {
     if (!generatedPlan) return;
+    if (!currentUser) {
+      showToast('Please sign in or register to save custom itineraries to your account.', 'info');
+      return;
+    }
     setIsSaving(true);
     try {
       const res = await api.saveItinerary({
@@ -999,7 +1080,6 @@ function BudgetPlannerTab({ initialDestination, initialBudget, initialDuration, 
         user_notes: 'Created via JBD AI Budget Planner'
       });
       showToast('Itinerary saved to your JBD account!', 'success');
-      // Update plan with generated ID
       setGeneratedPlan({ ...generatedPlan, id: res.itinerary.id });
     } catch (err) {
       showToast(err.message, 'error');
@@ -1013,7 +1093,6 @@ function BudgetPlannerTab({ initialDestination, initialBudget, initialDuration, 
     setIsSubmittingInquiry(true);
     try {
       let planId = generatedPlan.id;
-      // If not saved yet, save first
       if (!planId) {
         const saved = await api.saveItinerary({
           title: generatedPlan.title,
@@ -1042,7 +1121,7 @@ function BudgetPlannerTab({ initialDestination, initialBudget, initialDuration, 
         special_requests: inquirySpecialReq
       });
 
-      showToast('Inquiry submitted to JBD Travel Specialist! We will contact you with final confirmations.', 'success');
+      showToast('Booking inquiry submitted to JBD Travel Specialist! We will contact you with final confirmations.', 'success');
       setInquiryModalOpen(false);
       setActiveTab('itineraries');
     } catch (err) {
@@ -1102,11 +1181,11 @@ function BudgetPlannerTab({ initialDestination, initialBudget, initialDuration, 
             />
           </div>
 
-          {/* Budget Slider */}
+          {/* Budget Slider with Convertible Currency */}
           <div className="bg-brand-50/50 p-4 rounded-2xl border border-brand-100">
             <div className="flex justify-between items-center mb-1">
               <span className="text-xs font-bold text-slate-700 uppercase">Total Budget</span>
-              <span className="text-base font-extrabold text-brand-700">${budget.toLocaleString()} USD</span>
+              <span className="text-base font-extrabold text-brand-700">{formatCurrency(budget, currency)}</span>
             </div>
             <input
               type="range"
@@ -1118,9 +1197,9 @@ function BudgetPlannerTab({ initialDestination, initialBudget, initialDuration, 
               className="w-full accent-brand-600 cursor-pointer"
             />
             <div className="flex justify-between text-[10px] text-slate-400 mt-1">
-              <span>$500</span>
-              <span>$7,500</span>
-              <span>$15,000</span>
+              <span>{formatCurrency(500, currency)}</span>
+              <span>{formatCurrency(7500, currency)}</span>
+              <span>{formatCurrency(15000, currency)}</span>
             </div>
           </div>
 
@@ -1257,7 +1336,7 @@ function BudgetPlannerTab({ initialDestination, initialBudget, initialDuration, 
                   </div>
                 </div>
 
-                {/* Expense Breakdown Progress Bars (Module 2 Requirement) */}
+                {/* Expense Breakdown Progress Bars (Module 2 Requirement with Currency Converter) */}
                 <div className="mt-6 pt-6 border-t border-slate-100">
                   <div className="flex items-center justify-between mb-4">
                     <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
@@ -1265,8 +1344,8 @@ function BudgetPlannerTab({ initialDestination, initialBudget, initialDuration, 
                     </h4>
                     <div className="text-right">
                       <span className="text-xs text-slate-400">Total Estimated: </span>
-                      <span className="text-base font-extrabold text-slate-900">${generatedPlan.estimated_cost.toLocaleString()}</span>
-                      <span className="text-xs text-slate-500"> / Target ${generatedPlan.total_budget.toLocaleString()}</span>
+                      <span className="text-base font-extrabold text-slate-900">{formatCurrency(generatedPlan.estimated_cost, currency)}</span>
+                      <span className="text-xs text-slate-500"> / Target {formatCurrency(generatedPlan.total_budget, currency)}</span>
                     </div>
                   </div>
 
@@ -1275,7 +1354,7 @@ function BudgetPlannerTab({ initialDestination, initialBudget, initialDuration, 
                       <div className="flex items-center text-sky-700 text-xs font-bold mb-1">
                         <i className="fa-solid fa-plane mr-1.5"></i> Flights
                       </div>
-                      <div className="text-lg font-black text-sky-900">${generatedPlan.cost_breakdown.flights}</div>
+                      <div className="text-lg font-black text-sky-900">{formatCurrency(generatedPlan.cost_breakdown.flights, currency)}</div>
                       <div className="text-[10px] text-sky-600 mt-0.5">Roundtrip & baggage</div>
                     </div>
 
@@ -1283,7 +1362,7 @@ function BudgetPlannerTab({ initialDestination, initialBudget, initialDuration, 
                       <div className="flex items-center text-indigo-700 text-xs font-bold mb-1">
                         <i className="fa-solid fa-hotel mr-1.5"></i> Hotels
                       </div>
-                      <div className="text-lg font-black text-indigo-900">${generatedPlan.cost_breakdown.hotel}</div>
+                      <div className="text-lg font-black text-indigo-900">{formatCurrency(generatedPlan.cost_breakdown.hotel, currency)}</div>
                       <div className="text-[10px] text-indigo-600 mt-0.5">JBD partner rate</div>
                     </div>
 
@@ -1291,7 +1370,7 @@ function BudgetPlannerTab({ initialDestination, initialBudget, initialDuration, 
                       <div className="flex items-center text-emerald-700 text-xs font-bold mb-1">
                         <i className="fa-solid fa-ticket mr-1.5"></i> Activities
                       </div>
-                      <div className="text-lg font-black text-emerald-900">${generatedPlan.cost_breakdown.activities}</div>
+                      <div className="text-lg font-black text-emerald-900">{formatCurrency(generatedPlan.cost_breakdown.activities, currency)}</div>
                       <div className="text-[10px] text-emerald-600 mt-0.5">Tours & admissions</div>
                     </div>
 
@@ -1299,7 +1378,7 @@ function BudgetPlannerTab({ initialDestination, initialBudget, initialDuration, 
                       <div className="flex items-center text-amber-700 text-xs font-bold mb-1">
                         <i className="fa-solid fa-utensils mr-1.5"></i> Dining
                       </div>
-                      <div className="text-lg font-black text-amber-900">${generatedPlan.cost_breakdown.dining}</div>
+                      <div className="text-lg font-black text-amber-900">{formatCurrency(generatedPlan.cost_breakdown.dining, currency)}</div>
                       <div className="text-[10px] text-amber-600 mt-0.5">Gourmet & local food</div>
                     </div>
 
@@ -1307,7 +1386,7 @@ function BudgetPlannerTab({ initialDestination, initialBudget, initialDuration, 
                       <div className="flex items-center text-purple-700 text-xs font-bold mb-1">
                         <i className="fa-solid fa-shield-heart mr-1.5"></i> Buffer
                       </div>
-                      <div className="text-lg font-black text-purple-900">${generatedPlan.cost_breakdown.contingency_buffer}</div>
+                      <div className="text-lg font-black text-purple-900">{formatCurrency(generatedPlan.cost_breakdown.contingency_buffer, currency)}</div>
                       <div className="text-[10px] text-purple-600 mt-0.5">5% safety margin</div>
                     </div>
                   </div>
@@ -1324,7 +1403,7 @@ function BudgetPlannerTab({ initialDestination, initialBudget, initialDuration, 
                         <div className="text-[10px] uppercase font-bold text-indigo-600">Selected Partner Hotel</div>
                         <div className="text-xs font-bold text-slate-800 truncate">{generatedPlan.selected_hotel.name}</div>
                         <div className="text-[11px] text-slate-500">
-                          ${generatedPlan.selected_hotel.jbd_partner_rate}/night <span className="text-emerald-600 font-semibold">(Save {generatedPlan.selected_hotel.partner_discount_percent}%)</span>
+                          {formatCurrency(generatedPlan.selected_hotel.jbd_partner_rate, currency)}/night <span className="text-emerald-600 font-semibold">(Save {generatedPlan.selected_hotel.partner_discount_percent}%)</span>
                         </div>
                       </div>
                     </div>
@@ -1339,7 +1418,7 @@ function BudgetPlannerTab({ initialDestination, initialBudget, initialDuration, 
                         <div className="text-[10px] uppercase font-bold text-sky-600">Selected Flight Route</div>
                         <div className="text-xs font-bold text-slate-800 truncate">{generatedPlan.selected_flight.airline_name} ({generatedPlan.selected_flight.flight_number})</div>
                         <div className="text-[11px] text-slate-500">
-                          {generatedPlan.selected_flight.origin_city} ➔ {generatedPlan.selected_flight.destination_city} • ${generatedPlan.selected_flight.total_price_usd}/pax
+                          {generatedPlan.selected_flight.origin_city} ➔ {generatedPlan.selected_flight.destination_city} • {formatCurrency(generatedPlan.selected_flight.total_price_usd, currency)}/pax
                         </div>
                       </div>
                     </div>
@@ -1367,7 +1446,7 @@ function BudgetPlannerTab({ initialDestination, initialBudget, initialDuration, 
                         </div>
                       </div>
                       <div className="text-right">
-                        <span className="text-xs font-bold text-slate-700">${dayItem.day_total_cost}</span>
+                        <span className="text-xs font-bold text-slate-700">{formatCurrency(dayItem.day_total_cost, currency)}</span>
                         <span className="text-[10px] text-slate-400 block">Day's Activity Cost</span>
                       </div>
                     </div>
@@ -1468,7 +1547,7 @@ function BudgetPlannerTab({ initialDestination, initialBudget, initialDuration, 
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Estimated Quote:</span>
-                <span className="font-extrabold text-emerald-700">${generatedPlan.estimated_cost.toLocaleString()} USD</span>
+                <span className="font-extrabold text-emerald-700">{formatCurrency(generatedPlan.estimated_cost, currency)}</span>
               </div>
             </div>
 
@@ -1516,7 +1595,7 @@ function BudgetPlannerTab({ initialDestination, initialBudget, initialDuration, 
 // ----------------------------------------------------
 // MODULE 4: FLIGHT & HOTEL PRICE COMPARISON
 // ----------------------------------------------------
-function PriceComparisonTab({ showToast, onSelectForPlan }) {
+function PriceComparisonTab({ showToast, onSelectForPlan, currency }) {
   const [activeSubTab, setActiveSubTab] = useState('flights'); // 'flights' or 'hotels'
   
   // Flight state
@@ -1764,8 +1843,8 @@ function PriceComparisonTab({ showToast, onSelectForPlan }) {
                 <div className="text-right flex md:flex-col items-center md:items-end justify-between w-full md:w-auto border-t md:border-t-0 pt-3 md:pt-0">
                   <div>
                     <span className="text-[10px] text-slate-400 block">Total fare</span>
-                    <span className="text-2xl font-black text-slate-900">${flight.total_price_usd}</span>
-                    <span className="text-[10px] text-slate-400 block">incl. ${flight.tax_usd} taxes</span>
+                    <span className="text-2xl font-black text-slate-900">{formatCurrency(flight.total_price_usd, currency)}</span>
+                    <span className="text-[10px] text-slate-400 block">incl. {formatCurrency(flight.tax_usd, currency)} taxes</span>
                   </div>
                   <button
                     onClick={() => {
@@ -1894,7 +1973,7 @@ function PriceComparisonTab({ showToast, onSelectForPlan }) {
                       </div>
                     </div>
 
-                    {/* COMPARATIVE RATES MATRIX (Standard vs OTA vs JBD Partner Rate) */}
+                    {/* COMPARATIVE RATES MATRIX (Customer View - Confidential Commission Margin Omitted) */}
                     <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200">
                       <div className="text-[11px] uppercase font-bold text-slate-500 mb-2">
                         Cross-Provider Rate Comparison (Per Night)
@@ -1904,31 +1983,39 @@ function PriceComparisonTab({ showToast, onSelectForPlan }) {
                         {/* Standard Rate */}
                         <div className="p-2 rounded-xl bg-white border border-slate-200">
                           <span className="text-[10px] text-slate-400 block">Direct Hotel Price</span>
-                          <span className="text-sm font-bold text-slate-500 line-through">${comp.standard_direct_rate}</span>
+                          <span className="text-sm font-bold text-slate-500 line-through">
+                            {formatCurrency(comp.standard_direct_rate, currency)}
+                          </span>
                         </div>
 
                         {/* Expedia */}
                         <div className="p-2 rounded-xl bg-white border border-slate-200">
                           <span className="text-[10px] text-slate-400 block">Expedia</span>
-                          <span className="text-sm font-bold text-slate-600">${comp.expedia_rate}</span>
+                          <span className="text-sm font-bold text-slate-600">
+                            {formatCurrency(comp.expedia_rate, currency)}
+                          </span>
                         </div>
 
                         {/* Booking.com */}
                         <div className="p-2 rounded-xl bg-white border border-slate-200">
                           <span className="text-[10px] text-slate-400 block">Booking.com</span>
-                          <span className="text-sm font-bold text-slate-600">${comp.booking_com_rate}</span>
+                          <span className="text-sm font-bold text-slate-600">
+                            {formatCurrency(comp.booking_com_rate, currency)}
+                          </span>
                         </div>
 
                         {/* JBD Partner Exclusive Rate */}
                         <div className="p-2 rounded-xl bg-emerald-50 border-2 border-emerald-400 shadow-sm">
                           <span className="text-[10px] font-extrabold text-emerald-800 block">JBD Partner Club</span>
-                          <span className="text-base font-black text-emerald-700">${comp.jbd_exclusive_partner_rate}</span>
+                          <span className="text-base font-black text-emerald-700">
+                            {formatCurrency(comp.jbd_exclusive_partner_rate, currency)}
+                          </span>
                         </div>
                       </div>
 
                       {comp.customer_savings_vs_competitor > 0 && (
                         <div className="mt-2 text-center text-xs font-bold text-emerald-700">
-                          🎉 Save ${comp.customer_savings_vs_competitor} per night vs major online travel agencies!
+                          🎉 Save {formatCurrency(comp.customer_savings_vs_competitor, currency)} per night compared to major online booking sites!
                         </div>
                       )}
                     </div>
@@ -1957,7 +2044,7 @@ function PriceComparisonTab({ showToast, onSelectForPlan }) {
 // ----------------------------------------------------
 // MODULE 5: PARTNER HOTEL CATALOG
 // ----------------------------------------------------
-function PartnerHotelsTab({ showToast, onSelectDestinationForPlan }) {
+function PartnerHotelsTab({ showToast, onSelectDestinationForPlan, currency }) {
   const [hotels, setHotels] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -2024,8 +2111,8 @@ function PartnerHotelsTab({ showToast, onSelectDestinationForPlan }) {
 
               <div className="p-5 pt-0 border-t border-slate-100 pt-3 flex items-center justify-between">
                 <div>
-                  <span className="text-[10px] text-slate-400 line-through block">Standard ${hotel.standard_rate_per_night}</span>
-                  <span className="text-lg font-black text-emerald-700">${hotel.jbd_partner_rate}</span>
+                  <span className="text-[10px] text-slate-400 line-through block">Standard {formatCurrency(hotel.standard_rate_per_night, currency)}</span>
+                  <span className="text-lg font-black text-emerald-700">{formatCurrency(hotel.jbd_partner_rate, currency)}</span>
                   <span className="text-[10px] text-slate-500"> / night</span>
                 </div>
                 <button
@@ -2046,7 +2133,7 @@ function PartnerHotelsTab({ showToast, onSelectDestinationForPlan }) {
 // ----------------------------------------------------
 // MODULE 6: TRAVEL DOCUMENTATION (PASSPORT & VISA CHECKER)
 // ----------------------------------------------------
-function TravelDocsTab({ showToast }) {
+function TravelDocsTab({ showToast, currency }) {
   const [origins, setOrigins] = useState([]);
   const [destinations, setDestinations] = useState([]);
   const [originCountry, setOriginCountry] = useState('United States');
@@ -2063,7 +2150,6 @@ function TravelDocsTab({ showToast }) {
       const res = await api.getSupportedCountries();
       setOrigins(res.origins || ['United States', 'United Kingdom', 'Canada', 'Australia']);
       setDestinations(res.destinations || ['Japan', 'France', 'Indonesia', 'United Arab Emirates']);
-      // Run initial check
       checkVisaRequirement('United States', 'Japan');
     } catch (err) {
       showToast('Error loading country catalogue', 'error');
@@ -2175,7 +2261,7 @@ function TravelDocsTab({ showToast }) {
             </div>
           </div>
 
-          {/* Core Passport & Visa Criteria Grid */}
+          {/* Core Criteria */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
               <span className="text-[11px] text-slate-400 font-bold uppercase block">Max Stay Duration</span>
@@ -2197,7 +2283,7 @@ function TravelDocsTab({ showToast }) {
             <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
               <span className="text-[11px] text-slate-400 font-bold uppercase block">Estimated Fee</span>
               <span className="text-lg font-black text-slate-800">
-                {advisory.estimated_fee_usd === 0 ? 'Free ($0)' : `$${advisory.estimated_fee_usd} USD`}
+                {advisory.estimated_fee_usd === 0 ? 'Free ($0)' : formatCurrency(advisory.estimated_fee_usd, currency)}
               </span>
             </div>
           </div>
@@ -2272,9 +2358,9 @@ function destDestOptions(destinations) {
 }
 
 // ----------------------------------------------------
-// SAVED ITINERARIES & MY TRIPS
+// SAVED ITINERARIES & MY TRIPS (Customer View)
 // ----------------------------------------------------
-function ItinerariesTab({ currentUser, showToast, setActiveTab, onSelectDestinationForPlan }) {
+function ItinerariesTab({ currentUser, showToast, setActiveTab, currency }) {
   const [itineraries, setItineraries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [viewModalItinerary, setViewModalItinerary] = useState(null);
@@ -2367,11 +2453,11 @@ function ItinerariesTab({ currentUser, showToast, setActiveTab, onSelectDestinat
                 <div className="grid grid-cols-2 gap-2 mt-4 bg-slate-50 p-3 rounded-2xl text-xs">
                   <div>
                     <span className="text-slate-400 block text-[10px]">Estimated Cost</span>
-                    <span className="font-extrabold text-slate-800">${it.estimated_cost.toLocaleString()}</span>
+                    <span className="font-extrabold text-slate-800">{formatCurrency(it.estimated_cost, currency)}</span>
                   </div>
                   <div>
                     <span className="text-slate-400 block text-[10px]">Target Budget</span>
-                    <span className="font-bold text-slate-600">${it.total_budget.toLocaleString()}</span>
+                    <span className="font-bold text-slate-600">{formatCurrency(it.total_budget, currency)}</span>
                   </div>
                 </div>
               </div>
@@ -2417,7 +2503,7 @@ function ItinerariesTab({ currentUser, showToast, setActiveTab, onSelectDestinat
               </span>
               <h2 className="text-2xl font-black text-slate-900 mt-1">{viewModalItinerary.title}</h2>
               <p className="text-xs text-slate-500">
-                Created for {viewModalItinerary.customer_name} • Total Cost: ${viewModalItinerary.estimated_cost}
+                Created for {viewModalItinerary.customer_name} • Total Cost: {formatCurrency(viewModalItinerary.estimated_cost, currency)}
               </p>
             </div>
 
@@ -2429,13 +2515,13 @@ function ItinerariesTab({ currentUser, showToast, setActiveTab, onSelectDestinat
                   <div className="font-bold text-slate-900 text-sm">{day.theme}</div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-slate-600">
                     <div>
-                      <strong>Morning:</strong> {day.morning.title} (${day.morning.cost_usd})
+                      <strong>Morning:</strong> {day.morning.title} ({formatCurrency(day.morning.cost_usd, currency)})
                     </div>
                     <div>
-                      <strong>Afternoon:</strong> {day.afternoon.title} (${day.afternoon.cost_usd})
+                      <strong>Afternoon:</strong> {day.afternoon.title} ({formatCurrency(day.afternoon.cost_usd, currency)})
                     </div>
                     <div>
-                      <strong>Evening:</strong> {day.evening.title} (${day.evening.cost_usd})
+                      <strong>Evening:</strong> {day.evening.title} ({formatCurrency(day.evening.cost_usd, currency)})
                     </div>
                   </div>
                 </div>
@@ -2459,9 +2545,289 @@ function ItinerariesTab({ currentUser, showToast, setActiveTab, onSelectDestinat
 }
 
 // ----------------------------------------------------
-// MODULE 7: ADMINISTRATIVE DASHBOARD COMPONENT
+// DEDICATED AGENT DASHBOARD COMPONENT (ONLY AGENT ACCESS)
 // ----------------------------------------------------
-function AdminDashboardTab({ currentUser, showToast }) {
+function AgentPortalTab({ currentUser, showToast, currency }) {
+  const [inquiries, setInquiries] = useState([]);
+  const [stats, setStats] = useState({ total_inquiries: 0, pending_count: 0, in_review_count: 0, confirmed_count: 0 });
+  const [loading, setLoading] = useState(true);
+  const [filterStatus, setFilterStatus] = useState('All');
+  const [selectedInquiryModal, setSelectedInquiryModal] = useState(null);
+  const [agentNotes, setAgentNotes] = useState('');
+  const [quoteAmount, setQuoteAmount] = useState(0);
+
+  useEffect(() => {
+    loadAgentData();
+  }, []);
+
+  const loadAgentData = async () => {
+    setLoading(true);
+    try {
+      const res = await api.getAgentSummary();
+      setInquiries(res.inquiries || []);
+      if (res.stats) setStats(res.stats);
+    } catch (err) {
+      showToast('Access restricted: Travel Agent privileges required.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateStatus = async (inquiryId, newStatus) => {
+    try {
+      const res = await api.updateAdminInquiry(inquiryId, { status: newStatus });
+      showToast(`Inquiry #${inquiryId} updated to ${newStatus}`, 'success');
+      setInquiries(inquiries.map(inq => inq.id === inquiryId ? res.inquiry : inq));
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  };
+
+  const handleSaveInquiryDetails = async () => {
+    if (!selectedInquiryModal) return;
+    try {
+      const res = await api.updateAdminInquiry(selectedInquiryModal.id, {
+        agent_notes: agentNotes,
+        quote_amount: Number(quoteAmount)
+      });
+      showToast(`Saved quote & notes for inquiry #${selectedInquiryModal.id}`, 'success');
+      setInquiries(inquiries.map(inq => inq.id === selectedInquiryModal.id ? res.inquiry : inq));
+      setSelectedInquiryModal(null);
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  };
+
+  const openManageModal = (inq) => {
+    setSelectedInquiryModal(inq);
+    setAgentNotes(inq.agent_notes || '');
+    setQuoteAmount(inq.quote_amount || 0);
+  };
+
+  const filteredInquiries = filterStatus === 'All'
+    ? inquiries
+    : inquiries.filter(i => i.status === filterStatus);
+
+  return (
+    <div className="space-y-8 pb-16 animate-fadeIn">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-brand-900 via-brand-800 to-slate-900 rounded-3xl p-8 sm:p-10 text-white shadow-xl">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <span className="text-xs uppercase font-extrabold tracking-wider bg-brand-500/30 text-brand-300 px-3 py-1 rounded-full border border-brand-400/30 inline-block mb-2">
+              Agent Portal • Travel Operations & Reservations
+            </span>
+            <h1 className="text-3xl font-extrabold">Travel Specialist Management Console</h1>
+            <p className="text-slate-300 text-xs mt-1">
+              Logged in as Travel Agent <strong className="text-white">{currentUser.full_name}</strong>
+            </p>
+          </div>
+
+          <button
+            onClick={loadAgentData}
+            className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold border border-white/20 transition flex items-center space-x-1.5 self-start sm:self-auto"
+          >
+            <i className="fa-solid fa-arrows-rotate"></i>
+            <span>Refresh Queue</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Agent Stat KPI Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm">
+          <span className="text-xs font-bold uppercase text-slate-500 block mb-1">Total Client Inquiries</span>
+          <span className="text-2xl font-black text-slate-900">{stats.total_inquiries}</span>
+          <div className="text-[10px] text-slate-400 mt-1">Submitted from AI itineraries</div>
+        </div>
+
+        <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm">
+          <span className="text-xs font-bold uppercase text-amber-600 block mb-1">Pending Reviews</span>
+          <span className="text-2xl font-black text-amber-600">{stats.pending_count}</span>
+          <div className="text-[10px] text-slate-400 mt-1">Requires quote generation</div>
+        </div>
+
+        <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm">
+          <span className="text-xs font-bold uppercase text-brand-600 block mb-1">In Negotiation</span>
+          <span className="text-2xl font-black text-brand-600">{stats.in_review_count}</span>
+          <div className="text-[10px] text-slate-400 mt-1">Awaiting client approval</div>
+        </div>
+
+        <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm">
+          <span className="text-xs font-bold uppercase text-emerald-600 block mb-1">Confirmed Bookings</span>
+          <span className="text-2xl font-black text-emerald-600">{stats.confirmed_count}</span>
+          <div className="text-[10px] text-slate-400 mt-1">Ready for departure</div>
+        </div>
+      </div>
+
+      {/* Filter and Inquiries Table */}
+      <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden space-y-4 p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+          <div>
+            <h3 className="text-lg font-bold text-slate-900">Active Customer Travel Inquiries</h3>
+            <p className="text-xs text-slate-500">Review trip requests, update booking quotes, and add reservation notes.</p>
+          </div>
+
+          <div className="inline-flex bg-slate-100 p-1 rounded-xl text-xs font-bold">
+            {['All', 'Pending', 'In Review', 'Confirmed', 'Cancelled'].map(st => (
+              <button
+                key={st}
+                onClick={() => setFilterStatus(st)}
+                className={`px-3 py-1 rounded-lg transition ${
+                  filterStatus === st ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                {st}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="py-12 text-center text-slate-400">Loading inquiry queue...</div>
+        ) : filteredInquiries.length === 0 ? (
+          <div className="py-12 text-center text-slate-400 text-xs">No inquiries matching filter.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50 text-slate-500 uppercase font-bold tracking-wider border-b border-slate-200">
+                <tr>
+                  <th className="p-3.5">ID</th>
+                  <th className="p-3.5">Customer</th>
+                  <th className="p-3.5">Trip Destination</th>
+                  <th className="p-3.5">Quote Amount</th>
+                  <th className="p-3.5">Assigned Agent</th>
+                  <th className="p-3.5">Status</th>
+                  <th className="p-3.5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredInquiries.map(inq => (
+                  <tr key={inq.id} className="hover:bg-slate-50/80 transition">
+                    <td className="p-3.5 font-mono text-slate-400">#{inq.id}</td>
+                    <td className="p-3.5">
+                      <div className="font-bold text-slate-800">{inq.customer_name}</div>
+                      <div className="text-[11px] text-slate-400">{inq.customer_email}</div>
+                    </td>
+                    <td className="p-3.5 font-semibold text-slate-700">
+                      {inq.destination_name}
+                    </td>
+                    <td className="p-3.5 font-black text-slate-900">
+                      {formatCurrency(inq.quote_amount, currency)}
+                    </td>
+                    <td className="p-3.5 text-slate-600">
+                      {inq.assigned_employee_name || 'Unassigned'}
+                    </td>
+                    <td className="p-3.5">
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
+                        inq.status === 'Confirmed' ? 'bg-emerald-100 text-emerald-800' :
+                        inq.status === 'In Review' ? 'bg-brand-100 text-brand-800' :
+                        inq.status === 'Cancelled' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'
+                      }`}>
+                        {inq.status}
+                      </span>
+                    </td>
+                    <td className="p-3.5 text-right space-x-2">
+                      <select
+                        value={inq.status}
+                        onChange={e => handleUpdateStatus(inq.id, e.target.value)}
+                        className="px-2 py-1 rounded-lg border border-slate-200 text-xs bg-white font-medium"
+                      >
+                        <option value="Pending">Pending</option>
+                        <option value="In Review">In Review</option>
+                        <option value="Confirmed">Confirmed</option>
+                        <option value="Cancelled">Cancelled</option>
+                      </select>
+                      <button
+                        onClick={() => openManageModal(inq)}
+                        className="p-1.5 text-brand-600 hover:bg-brand-50 rounded-lg text-xs"
+                        title="Manage Notes & Quote"
+                      >
+                        <i className="fa-regular fa-pen-to-square"></i>
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Agent Manage Modal */}
+      {selectedInquiryModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl relative animate-fadeIn space-y-4">
+            <button
+              onClick={() => setSelectedInquiryModal(null)}
+              className="absolute top-5 right-5 text-slate-400 hover:text-slate-600 w-8 h-8 rounded-full flex items-center justify-center hover:bg-slate-100"
+            >
+              <i className="fa-solid fa-xmark text-lg"></i>
+            </button>
+
+            <h3 className="text-xl font-bold text-slate-900">
+              Manage Booking Inquiry #{selectedInquiryModal.id}
+            </h3>
+            <p className="text-xs text-slate-500">
+              Client: <strong>{selectedInquiryModal.customer_name}</strong> ({selectedInquiryModal.customer_email})
+            </p>
+
+            {selectedInquiryModal.customer_special_requests && (
+              <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900">
+                <strong>Client's Special Requests:</strong> {selectedInquiryModal.customer_special_requests}
+              </div>
+            )}
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                Final Quote Amount ({currency})
+              </label>
+              <input
+                type="number"
+                value={quoteAmount}
+                onChange={e => setQuoteAmount(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-bold"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                Internal Agent Notes & Hotel Voucher Details
+              </label>
+              <textarea
+                rows="3"
+                value={agentNotes}
+                onChange={e => setAgentNotes(e.target.value)}
+                placeholder="e.g. Spoke with hotel manager, complimentary upgrade confirmed, airport pickup scheduled..."
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs"
+              ></textarea>
+            </div>
+
+            <div className="flex justify-end space-x-2 pt-2 border-t border-slate-100">
+              <button
+                onClick={() => setSelectedInquiryModal(null)}
+                className="px-4 py-2 border border-slate-200 text-slate-600 rounded-xl text-xs font-semibold hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveInquiryDetails}
+                className="px-5 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold shadow-md shadow-brand-600/20"
+              >
+                Save Details
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ----------------------------------------------------
+// DEDICATED ADMIN DASHBOARD COMPONENT (ONLY ADMIN ACCESS)
+// ----------------------------------------------------
+function AdminDashboardTab({ currentUser, showToast, currency }) {
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [adminHotels, setAdminHotels] = useState([]);
@@ -2482,7 +2848,7 @@ function AdminDashboardTab({ currentUser, showToast }) {
   const [hotelFormImage, setHotelFormImage] = useState('');
 
   // Active view inside admin dashboard
-  const [adminSubView, setAdminSubView] = useState('analytics'); // 'analytics', 'hotels', 'inquiries', 'settings'
+  const [adminSubView, setAdminSubView] = useState('analytics'); // 'analytics', 'hotels', 'settings'
 
   const chartRef1 = useRef(null);
   const chartInstance1 = useRef(null);
@@ -2507,7 +2873,7 @@ function AdminDashboardTab({ currentUser, showToast }) {
       setAdminInquiries(inqRes.inquiries || []);
       setSettings(setRes.settings || {});
     } catch (err) {
-      showToast('Access restricted: Employee or Admin privileges required.', 'error');
+      showToast('Access restricted: Administrator privileges required.', 'error');
     } finally {
       setLoading(false);
     }
@@ -2516,12 +2882,16 @@ function AdminDashboardTab({ currentUser, showToast }) {
   // Render Chart.js when dashboardData is available
   useEffect(() => {
     if (adminSubView === 'analytics' && dashboardData && chartRef1.current && chartRef2.current) {
-      // Clean up previous charts if any
       if (chartInstance1.current) chartInstance1.current.destroy();
       if (chartInstance2.current) chartInstance2.current.destroy();
 
       const ctx1 = chartRef1.current.getContext('2d');
       const monthlyData = dashboardData.charts.monthly_trends;
+
+      // Currency factor
+      const multiplier = currency === 'INR' ? USD_TO_INR : 1.0;
+      const revData = monthlyData.revenue.map(v => Math.round(v * multiplier));
+      const commData = monthlyData.commission.map(v => Math.round(v * multiplier));
 
       chartInstance1.current = new Chart(ctx1, {
         type: 'bar',
@@ -2529,14 +2899,14 @@ function AdminDashboardTab({ currentUser, showToast }) {
           labels: monthlyData.labels,
           datasets: [
             {
-              label: 'Gross Booked Revenue ($)',
-              data: monthlyData.revenue,
-              backgroundColor: 'rgba(2, 132, 199, 0.85)',
+              label: `Gross Booked Revenue (${currency})`,
+              data: revData,
+              backgroundColor: 'rgba(147, 51, 234, 0.85)',
               borderRadius: 6
             },
             {
-              label: 'JBD Commission Earned ($)',
-              data: monthlyData.commission,
+              label: `JBD Agency Commission (${currency})`,
+              data: commData,
               backgroundColor: 'rgba(16, 185, 129, 0.85)',
               borderRadius: 6
             }
@@ -2562,7 +2932,7 @@ function AdminDashboardTab({ currentUser, showToast }) {
             {
               data: stylesData.data,
               backgroundColor: [
-                '#0284c7', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'
+                '#9333ea', '#10b981', '#f59e0b', '#0284c7', '#ec4899'
               ]
             }
           ]
@@ -2581,9 +2951,8 @@ function AdminDashboardTab({ currentUser, showToast }) {
       if (chartInstance1.current) chartInstance1.current.destroy();
       if (chartInstance2.current) chartInstance2.current.destroy();
     };
-  }, [adminSubView, dashboardData]);
+  }, [adminSubView, dashboardData, currency]);
 
-  // Open modal for hotel create or edit
   const openHotelModal = (hotel = null) => {
     if (hotel) {
       setEditingHotel(hotel);
@@ -2653,16 +3022,6 @@ function AdminDashboardTab({ currentUser, showToast }) {
     }
   };
 
-  const handleUpdateInquiryStatus = async (inqId, newStatus) => {
-    try {
-      const res = await api.updateAdminInquiry(inqId, { status: newStatus });
-      showToast(`Inquiry #${inqId} status updated to ${newStatus}`, 'success');
-      setAdminInquiries(adminInquiries.map(inq => inq.id === inqId ? res.inquiry : inq));
-    } catch (err) {
-      showToast(err.message, 'error');
-    }
-  };
-
   const handleSaveSettings = async (e) => {
     e.preventDefault();
     try {
@@ -2673,43 +3032,18 @@ function AdminDashboardTab({ currentUser, showToast }) {
     }
   };
 
-  if (!currentUser || !['employee', 'admin'].includes(currentUser.role)) {
-    return (
-      <div className="bg-white rounded-3xl p-12 text-center border border-slate-200/80 shadow-md max-w-md mx-auto space-y-4">
-        <div className="w-16 h-16 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center mx-auto text-2xl">
-          <i className="fa-solid fa-lock"></i>
-        </div>
-        <h3 className="text-xl font-bold text-slate-900">Restricted Admin Portal</h3>
-        <p className="text-slate-500 text-xs leading-relaxed">
-          The JBD Administrative Dashboard is reserved for authorized agency employees and system administrators.
-        </p>
-        <div className="pt-2">
-          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Switch to Demo Staff Account:</p>
-          <button
-            onClick={() => {
-              api.login('admin@jbdtravels.com', 'Admin123!').then(() => window.location.reload());
-            }}
-            className="px-5 py-2.5 bg-purple-600 text-white rounded-xl text-xs font-bold hover:bg-purple-700 shadow-md transition"
-          >
-            Sign In as Admin (Sarah Jenkins)
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-8 pb-16">
+    <div className="space-y-8 pb-16 animate-fadeIn">
       
       {/* Top Bar with Sub-View Switcher */}
       <div className="flex flex-col md:flex-row md:items-center justify-between pb-4 border-b border-slate-200 gap-4">
         <div>
           <span className="text-xs uppercase font-extrabold tracking-wider bg-purple-100 text-purple-800 px-3 py-0.5 rounded-full inline-block mb-1">
-            Module 7 • Administrative Governance & Analytics
+            Module 7 • Executive Administration & Governance
           </span>
-          <h1 className="text-3xl font-extrabold text-slate-900">JBD Travels Management Console</h1>
+          <h1 className="text-3xl font-extrabold text-slate-900">JBD Executive Dashboard</h1>
           <p className="text-slate-500 text-xs">
-            Logged in as <strong className="text-slate-700">{currentUser.full_name}</strong> ({currentUser.role.toUpperCase()})
+            Logged in as Administrator <strong className="text-slate-700">{currentUser.full_name}</strong>
           </p>
         </div>
 
@@ -2721,7 +3055,7 @@ function AdminDashboardTab({ currentUser, showToast }) {
             }`}
           >
             <i className="fa-solid fa-chart-line"></i>
-            <span>Executive KPIs</span>
+            <span>Executive Financials</span>
           </button>
 
           <button
@@ -2731,30 +3065,18 @@ function AdminDashboardTab({ currentUser, showToast }) {
             }`}
           >
             <i className="fa-solid fa-hotel"></i>
-            <span>Partner Hotels ({adminHotels.length})</span>
+            <span>Partner Hotel CRUD ({adminHotels.length})</span>
           </button>
 
           <button
-            onClick={() => setAdminSubView('inquiries')}
+            onClick={() => setAdminSubView('settings')}
             className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 ${
-              adminSubView === 'inquiries' ? 'bg-white text-purple-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+              adminSubView === 'settings' ? 'bg-white text-purple-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <i className="fa-solid fa-clipboard-list"></i>
-            <span>Bookings & Plans ({adminInquiries.length})</span>
+            <i className="fa-solid fa-sliders"></i>
+            <span>Commission Rules</span>
           </button>
-
-          {currentUser.role === 'admin' && (
-            <button
-              onClick={() => setAdminSubView('settings')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 ${
-                adminSubView === 'settings' ? 'bg-white text-purple-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <i className="fa-solid fa-sliders"></i>
-              <span>Pricing Rules</span>
-            </button>
-          )}
         </div>
       </div>
 
@@ -2769,12 +3091,12 @@ function AdminDashboardTab({ currentUser, showToast }) {
               {/* Executive KPI Stat Cards */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm">
-                  <div className="flex items-center justify-between text-brand-600 mb-2">
-                    <span className="text-xs font-bold uppercase text-slate-500">Total Booked Volume</span>
+                  <div className="flex items-center justify-between text-purple-600 mb-2">
+                    <span className="text-xs font-bold uppercase text-slate-500">Gross Booked Volume</span>
                     <i className="fa-solid fa-sack-dollar text-xl"></i>
                   </div>
                   <div className="text-2xl font-black text-slate-900">
-                    ${dashboardData.kpis.total_revenue.toLocaleString()}
+                    {formatCurrency(dashboardData.kpis.total_revenue, currency)}
                   </div>
                   <div className="text-[10px] text-emerald-600 font-bold mt-1">
                     ↑ 18.4% vs last quarter
@@ -2787,10 +3109,10 @@ function AdminDashboardTab({ currentUser, showToast }) {
                     <i className="fa-solid fa-hand-holding-dollar text-xl"></i>
                   </div>
                   <div className="text-2xl font-black text-emerald-700">
-                    ${dashboardData.kpis.total_commission_earned.toLocaleString()}
+                    {formatCurrency(dashboardData.kpis.total_commission_earned, currency)}
                   </div>
                   <div className="text-[10px] text-slate-400 mt-1">
-                    Avg margin: {dashboardData.kpis.avg_commission_rate}%
+                    Avg agency margin: {dashboardData.kpis.avg_commission_rate}%
                   </div>
                 </div>
 
@@ -2808,20 +3130,20 @@ function AdminDashboardTab({ currentUser, showToast }) {
                 </div>
 
                 <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm">
-                  <div className="flex items-center justify-between text-purple-600 mb-2">
-                    <span className="text-xs font-bold uppercase text-slate-500">Customer Travel Plans</span>
+                  <div className="flex items-center justify-between text-brand-600 mb-2">
+                    <span className="text-xs font-bold uppercase text-slate-500">Total Travel Plans</span>
                     <i className="fa-solid fa-map-location-dot text-xl"></i>
                   </div>
                   <div className="text-2xl font-black text-slate-900">
                     {dashboardData.kpis.total_travel_plans}
                   </div>
-                  <div className="text-[10px] text-purple-600 font-semibold mt-1">
-                    {dashboardData.kpis.total_inquiries} active inquiries
+                  <div className="text-[10px] text-brand-600 font-semibold mt-1">
+                    {dashboardData.kpis.total_inquiries} customer inquiries
                   </div>
                 </div>
               </div>
 
-              {/* Chart.js Visualizations (Recommended Technology Stack) */}
+              {/* Chart.js Visualizations */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 
                 {/* Revenue & Commission Trend Bar Chart */}
@@ -2829,10 +3151,10 @@ function AdminDashboardTab({ currentUser, showToast }) {
                   <div className="flex items-center justify-between mb-4">
                     <div>
                       <h3 className="font-bold text-slate-900 text-base">Monthly Revenue & Commission Performance</h3>
-                      <p className="text-xs text-slate-400">Financial growth tracking over recent operational period</p>
+                      <p className="text-xs text-slate-400">Financial tracking formatted in {currency}</p>
                     </div>
-                    <span className="text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded-md font-semibold">
-                      Chart.js Engine
+                    <span className="text-xs bg-purple-50 text-purple-700 px-2 py-1 rounded-md font-bold">
+                      Executive Chart.js
                     </span>
                   </div>
                   <div className="h-64">
@@ -2861,18 +3183,16 @@ function AdminDashboardTab({ currentUser, showToast }) {
             <div className="space-y-6 animate-fadeIn">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-xl font-bold text-slate-900">Partner Hotels Directory</h3>
+                  <h3 className="text-xl font-bold text-slate-900">Partner Hotels Directory (CRUD)</h3>
                   <p className="text-xs text-slate-500">Configure standard rates, negotiated discounts, and JBD commission percentages.</p>
                 </div>
-                {currentUser.role === 'admin' && (
-                  <button
-                    onClick={() => openHotelModal()}
-                    className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold shadow-md transition flex items-center space-x-1.5"
-                  >
-                    <i className="fa-solid fa-plus"></i>
-                    <span>Add Partner Hotel</span>
-                  </button>
-                )}
+                <button
+                  onClick={() => openHotelModal()}
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold shadow-md transition flex items-center space-x-1.5"
+                >
+                  <i className="fa-solid fa-plus"></i>
+                  <span>Add Partner Hotel</span>
+                </button>
               </div>
 
               <div className="bg-white rounded-3xl border border-slate-200/80 overflow-hidden shadow-sm">
@@ -2900,7 +3220,7 @@ function AdminDashboardTab({ currentUser, showToast }) {
                             {'★'.repeat(h.stars)}
                           </td>
                           <td className="p-4 font-semibold text-slate-700">
-                            ${h.standard_rate_per_night}
+                            {formatCurrency(h.standard_rate_per_night, currency)}
                           </td>
                           <td className="p-4">
                             <span className="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded font-extrabold">
@@ -2908,103 +3228,26 @@ function AdminDashboardTab({ currentUser, showToast }) {
                             </span>
                           </td>
                           <td className="p-4 font-black text-emerald-800">
-                            ${h.jbd_partner_rate}
+                            {formatCurrency(h.jbd_partner_rate, currency)}
                           </td>
                           <td className="p-4 font-bold text-purple-700">
-                            {h.jbd_commission_percent}% (${h.commission_per_night}/nt)
+                            {h.jbd_commission_percent}% ({formatCurrency(h.commission_per_night, currency)}/nt)
                           </td>
                           <td className="p-4 text-right space-x-2">
-                            {currentUser.role === 'admin' && (
-                              <>
-                                <button
-                                  onClick={() => openHotelModal(h)}
-                                  className="p-1.5 text-brand-600 hover:bg-brand-50 rounded-lg"
-                                  title="Edit Pricing & Discounts"
-                                >
-                                  <i className="fa-regular fa-pen-to-square"></i>
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteHotel(h.id)}
-                                  className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg"
-                                  title="Delete Hotel"
-                                >
-                                  <i className="fa-regular fa-trash-can"></i>
-                                </button>
-                              </>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* SUBVIEW 3: CUSTOMER TRAVEL PLANS & INQUIRIES */}
-          {adminSubView === 'inquiries' && (
-            <div className="space-y-6 animate-fadeIn">
-              <div>
-                <h3 className="text-xl font-bold text-slate-900">Customer Travel Plans & Booking Inquiries</h3>
-                <p className="text-xs text-slate-500">Manage trip statuses, assign travel specialists, and confirm bookings.</p>
-              </div>
-
-              <div className="bg-white rounded-3xl border border-slate-200/80 overflow-hidden shadow-sm">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 text-slate-500 uppercase font-bold tracking-wider border-b border-slate-200">
-                      <tr>
-                        <th className="p-4">ID</th>
-                        <th className="p-4">Customer</th>
-                        <th className="p-4">Trip Destination</th>
-                        <th className="p-4">Quote Amount</th>
-                        <th className="p-4">Commission</th>
-                        <th className="p-4">Assigned Agent</th>
-                        <th className="p-4">Status</th>
-                        <th className="p-4 text-right">Update Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {adminInquiries.map(inq => (
-                        <tr key={inq.id} className="hover:bg-slate-50/80 transition">
-                          <td className="p-4 font-mono text-slate-400">#{inq.id}</td>
-                          <td className="p-4">
-                            <div className="font-bold text-slate-800">{inq.customer_name}</div>
-                            <div className="text-[11px] text-slate-400">{inq.customer_email}</div>
-                          </td>
-                          <td className="p-4 font-semibold text-slate-700">
-                            {inq.destination_name}
-                          </td>
-                          <td className="p-4 font-black text-slate-900">
-                            ${inq.quote_amount.toLocaleString()}
-                          </td>
-                          <td className="p-4 font-bold text-emerald-700">
-                            +${inq.commission_earned.toLocaleString()}
-                          </td>
-                          <td className="p-4 text-slate-600">
-                            {inq.assigned_employee_name}
-                          </td>
-                          <td className="p-4">
-                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
-                              inq.status === 'Confirmed' ? 'bg-emerald-100 text-emerald-800' :
-                              inq.status === 'In Review' ? 'bg-brand-100 text-brand-800' :
-                              inq.status === 'Cancelled' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'
-                            }`}>
-                              {inq.status}
-                            </span>
-                          </td>
-                          <td className="p-4 text-right">
-                            <select
-                              value={inq.status}
-                              onChange={e => handleUpdateInquiryStatus(inq.id, e.target.value)}
-                              className="px-2 py-1 rounded-lg border border-slate-200 text-xs bg-white font-medium"
+                            <button
+                              onClick={() => openHotelModal(h)}
+                              className="p-1.5 text-brand-600 hover:bg-brand-50 rounded-lg"
+                              title="Edit Pricing & Discounts"
                             >
-                              <option value="Pending">Pending</option>
-                              <option value="In Review">In Review</option>
-                              <option value="Confirmed">Confirmed</option>
-                              <option value="Cancelled">Cancelled</option>
-                            </select>
+                              <i className="fa-regular fa-pen-to-square"></i>
+                            </button>
+                            <button
+                              onClick={() => handleDeleteHotel(h.id)}
+                              className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg"
+                              title="Delete Hotel"
+                            >
+                              <i className="fa-regular fa-trash-can"></i>
+                            </button>
                           </td>
                         </tr>
                       ))}
@@ -3015,8 +3258,8 @@ function AdminDashboardTab({ currentUser, showToast }) {
             </div>
           )}
 
-          {/* SUBVIEW 4: SETTINGS & PRICING RULES */}
-          {adminSubView === 'settings' && currentUser.role === 'admin' && (
+          {/* SUBVIEW 3: SETTINGS & PRICING RULES */}
+          {adminSubView === 'settings' && (
             <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-sm max-w-xl animate-fadeIn">
               <h3 className="text-xl font-bold text-slate-900 mb-1">Commission & Pricing Configuration</h3>
               <p className="text-xs text-slate-500 mb-6">
@@ -3131,7 +3374,7 @@ function AdminDashboardTab({ currentUser, showToast }) {
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Public Rate ($)</label>
+                  <label className="block font-bold text-slate-700 mb-1">Public Rate ($ USD)</label>
                   <input
                     type="number"
                     step="1"
@@ -3231,21 +3474,27 @@ function App() {
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [toasts, setToasts] = useState([]);
 
+  // Convertible Currency State (USD or INR, defaults to USD or saved in localStorage)
+  const [currency, setCurrencyState] = useState(() => {
+    return localStorage.getItem('jbd_currency') || 'USD';
+  });
+
+  const setCurrency = (curr) => {
+    setCurrencyState(curr);
+    localStorage.setItem('jbd_currency', curr);
+    showToast(`Currency converted to ${curr === 'INR' ? 'Indian Rupee (₹)' : 'US Dollar ($)'}`, 'info');
+  };
+
   // Planner state passed between tabs
   const [plannerDestination, setPlannerDestination] = useState('');
   const [plannerBudget, setPlannerBudget] = useState(3000);
   const [plannerDuration, setPlannerDuration] = useState(5);
 
   useEffect(() => {
-    // Check saved token or user
-    const user = api.getUser();
-    if (user) {
-      setCurrentUser(user);
-    } else {
-      // Auto-load customer demo account for smooth initial presentation
-      api.login('customer@jbdtravels.com', 'Customer123!').then(res => {
-        setCurrentUser(res.user);
-      }).catch(() => {});
+    // Check saved session in localStorage (production behavior: no auto-login as customer)
+    const savedUser = api.getUser();
+    if (savedUser) {
+      setCurrentUser(savedUser);
     }
   }, []);
 
@@ -3264,29 +3513,8 @@ function App() {
   const handleLogout = () => {
     api.logout();
     setCurrentUser(null);
+    setActiveTab('explore');
     showToast('Signed out of JBD Travels.', 'info');
-  };
-
-  const handleQuickSwitchRole = async (targetRole) => {
-    try {
-      let email = 'customer@jbdtravels.com';
-      let pass = 'Customer123!';
-      if (targetRole === 'employee') {
-        email = 'agent@jbdtravels.com';
-        pass = 'Agent123!';
-      } else if (targetRole === 'admin') {
-        email = 'admin@jbdtravels.com';
-        pass = 'Admin123!';
-      }
-      const res = await api.login(email, pass);
-      setCurrentUser(res.user);
-      showToast(`Switched active view to ${res.user.full_name} (${res.user.role.toUpperCase()})`, 'success');
-      if (targetRole === 'admin' || targetRole === 'employee') {
-        setActiveTab('admin');
-      }
-    } catch (err) {
-      showToast(err.message, 'error');
-    }
   };
 
   const handleSelectDestinationForPlan = (destName, budget = 2500, duration = 5) => {
@@ -3296,17 +3524,37 @@ function App() {
     setActiveTab('planner');
   };
 
+  // Security Guard for Confidential Dashboards
+  const handleTabChange = (targetTab) => {
+    if (targetTab === 'admin') {
+      if (!currentUser || currentUser.role !== 'admin') {
+        showToast('Access Denied: Only Administrators can access the Executive Admin Dashboard.', 'error');
+        setAuthModalOpen(true);
+        return;
+      }
+    }
+    if (targetTab === 'agent') {
+      if (!currentUser || currentUser.role !== 'employee') {
+        showToast('Access Denied: Only Travel Agents can access the Agent Portal.', 'error');
+        setAuthModalOpen(true);
+        return;
+      }
+    }
+    setActiveTab(targetTab);
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
       
       {/* Top Navigation */}
       <Navbar
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={handleTabChange}
         currentUser={currentUser}
         onOpenAuth={() => setAuthModalOpen(true)}
         onLogout={handleLogout}
-        onQuickSwitchRole={handleQuickSwitchRole}
+        currency={currency}
+        setCurrency={setCurrency}
       />
 
       {/* Main Tab Content */}
@@ -3315,6 +3563,7 @@ function App() {
           <ExploreTab
             onSelectDestinationForPlan={handleSelectDestinationForPlan}
             showToast={showToast}
+            currency={currency}
           />
         )}
 
@@ -3325,7 +3574,8 @@ function App() {
             initialDuration={plannerDuration}
             currentUser={currentUser}
             showToast={showToast}
-            setActiveTab={setActiveTab}
+            setActiveTab={handleTabChange}
+            currency={currency}
           />
         )}
 
@@ -3333,6 +3583,7 @@ function App() {
           <PriceComparisonTab
             showToast={showToast}
             onSelectForPlan={handleSelectDestinationForPlan}
+            currency={currency}
           />
         )}
 
@@ -3340,12 +3591,14 @@ function App() {
           <PartnerHotelsTab
             showToast={showToast}
             onSelectDestinationForPlan={handleSelectDestinationForPlan}
+            currency={currency}
           />
         )}
 
         {activeTab === 'docs' && (
           <TravelDocsTab
             showToast={showToast}
+            currency={currency}
           />
         )}
 
@@ -3353,15 +3606,27 @@ function App() {
           <ItinerariesTab
             currentUser={currentUser}
             showToast={showToast}
-            setActiveTab={setActiveTab}
+            setActiveTab={handleTabChange}
             onSelectDestinationForPlan={handleSelectDestinationForPlan}
+            currency={currency}
           />
         )}
 
-        {activeTab === 'admin' && (
+        {/* Dedicated Agent Dashboard (Travel Agent Only) */}
+        {activeTab === 'agent' && currentUser && currentUser.role === 'employee' && (
+          <AgentPortalTab
+            currentUser={currentUser}
+            showToast={showToast}
+            currency={currency}
+          />
+        )}
+
+        {/* Dedicated Admin Dashboard (Administrator Only) */}
+        {activeTab === 'admin' && currentUser && currentUser.role === 'admin' && (
           <AdminDashboardTab
             currentUser={currentUser}
             showToast={showToast}
+            currency={currency}
           />
         )}
       </main>
@@ -3390,21 +3655,22 @@ function App() {
           </div>
 
           <div>
-            <div className="font-bold text-white mb-2">Management</div>
+            <div className="font-bold text-white mb-2">Portals & Security</div>
             <div className="space-y-1">
-              <div>Module 5: Partner Hotel Management</div>
-              <div>Module 6: Passport & Visa Intelligence</div>
-              <div>Module 7: Administrative Dashboard</div>
+              <div>Customer Portal (Public)</div>
+              <div>Agent Portal (Restricted)</div>
+              <div>Admin Governance (Confidential)</div>
+              <div>Multi-Currency (USD & INR)</div>
             </div>
           </div>
 
           <div>
-            <div className="font-bold text-white mb-2">Prototype Tech Stack</div>
+            <div className="font-bold text-white mb-2">Production Architecture</div>
             <div className="space-y-1">
               <div>Frontend: React.js & Tailwind CSS</div>
-              <div>Backend: Python Flask & REST APIs</div>
-              <div>AI: Scikit-Learn Cosine Similarity</div>
-              <div>Visualisation: Chart.js</div>
+              <div>Backend: Python Flask REST API</div>
+              <div>AI: Scikit-Learn Cosine Matching</div>
+              <div>Analytics: Chart.js Canvas Engine</div>
             </div>
           </div>
         </div>
@@ -3414,7 +3680,14 @@ function App() {
       <AuthModal
         isOpen={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
-        onAuthSuccess={user => setCurrentUser(user)}
+        onAuthSuccess={user => {
+          setCurrentUser(user);
+          if (user.role === 'admin') {
+            setActiveTab('admin');
+          } else if (user.role === 'employee') {
+            setActiveTab('agent');
+          }
+        }}
         showToast={showToast}
       />
 
