@@ -553,7 +553,7 @@ function ExploreTab({ onSelectDestinationForPlan, showToast, currency }) {
         <div className="relative max-w-3xl p-8 sm:p-12 z-10 space-y-4">
           <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-brand-500/20 text-brand-300 border border-brand-400/30 text-xs font-semibold backdrop-blur-sm">
             <i className="fa-solid fa-sparkles text-amber-400"></i>
-            <span>Machine Learning & Vector Matching Engine</span>
+            <span> AI-Powered Travel Recommendations</span>
           </div>
 
           <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight leading-tight text-white">
