@@ -14,8 +14,8 @@ def create_app(config_name=None):
     
     app.config.from_object(config_by_name[config_name])
 
-    # Enable Cross-Origin Resource Sharing
-    CORS(app, resources={r"/api/*": {"origins": "*"}})
+    # Enable Cross-Origin Resource Sharing for separate frontend-backend deployments
+    CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 
     # Initialize extensions
     db.init_app(app)

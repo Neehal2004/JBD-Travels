@@ -1,10 +1,61 @@
 /**
  * JBD Travels API Client Service
+ * Configured for both unified and separated deployments (Render Frontend + Render Backend)
  */
 
-const API_BASE = '/api';
+function resolveApiBase() {
+  // 1. URL search parameter override: ?backend=https://jbd-travels-backend.onrender.com
+  if (typeof window !== 'undefined' && window.location && window.location.search) {
+    const params = new URLSearchParams(window.location.search);
+    const backendParam = params.get('backend') || params.get('api');
+    if (backendParam) {
+      const cleanUrl = backendParam.replace(/\/+$/, '');
+      const fullApi = cleanUrl.endsWith('/api') ? cleanUrl : `${cleanUrl}/api`;
+      localStorage.setItem('jbd_backend_url', fullApi);
+      return fullApi;
+    }
+  }
+
+  // 2. Saved user setting in localStorage
+  if (typeof localStorage !== 'undefined') {
+    const saved = localStorage.getItem('jbd_backend_url');
+    if (saved) return saved;
+  }
+
+  // 3. Global window config injected into index.html
+  if (typeof window !== 'undefined' && window.JBD_CONFIG && window.JBD_CONFIG.API_URL) {
+    return window.JBD_CONFIG.API_URL;
+  }
+
+  // 4. Default: Relative path for unified host or local development
+  return '/api';
+}
 
 const api = {
+  getBaseUrl() {
+    return resolveApiBase();
+  },
+
+  setBaseUrl(url) {
+    if (url && url.trim()) {
+      const clean = url.trim().replace(/\/+$/, '');
+      const full = clean.endsWith('/api') ? clean : `${clean}/api`;
+      localStorage.setItem('jbd_backend_url', full);
+    } else {
+      localStorage.removeItem('jbd_backend_url');
+    }
+  },
+
+  async checkHealth() {
+    try {
+      const base = this.getBaseUrl();
+      const res = await fetch(`${base}/health`, { method: 'GET' });
+      return await res.json();
+    } catch (e) {
+      return null;
+    }
+  },
+
   getToken() {
     return localStorage.getItem('jbd_token');
   },
@@ -45,8 +96,11 @@ const api = {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
+    const baseUrl = this.getBaseUrl();
+    const fullUrl = `${baseUrl}${endpoint}`;
+
     try {
-      const response = await fetch(`${API_BASE}${endpoint}`, {
+      const response = await fetch(fullUrl, {
         ...options,
         headers
       });
@@ -59,7 +113,7 @@ const api = {
 
       return data;
     } catch (err) {
-      console.error(`API Error on ${endpoint}:`, err);
+      console.error(`API Error on ${fullUrl}:`, err);
       throw err;
     }
   },

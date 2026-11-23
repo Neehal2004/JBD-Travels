@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JBD Travels | AI-Assisted Travel Planning & Management System</title>
+  
+  <!-- Favicon -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✈️</text></svg>">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f9ff',
+              100: '#e0f2fe',
+              200: '#bae6fd',
+              300: '#7dd3fc',
+              400: '#38bdf8',
+              500: '#0ea5e9',
+              600: '#0284c7',
+              700: '#0369a1',
+              800: '#075985',
+              900: '#0c4a6e',
+              950: '#082f49',
+            },
+            amber: {
+              450: '#f59e0b',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Font Awesome 6 Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <!-- Chart.js 4 CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+
+  <!-- React 18 & ReactDOM 18 -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+  <!-- Babel Standalone (Runs React JSX directly) -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="/static/css/custom.css">
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased selection:bg-brand-500 selection:text-white">
+
+  <!-- Root mount point for React App -->
+  <div id="root">
+    <!-- Initial Loading State -->
+    <div class="min-h-screen flex items-center justify-center bg-slate-900 text-white">
+      <div class="text-center">
+        <div class="w-16 h-16 border-4 border-brand-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+        <h2 class="text-2xl font-bold tracking-tight">JBD Travels</h2>
+        <p class="text-slate-400 text-sm mt-1">Initializing AI Travel Engine...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Render / Production Backend Configuration -->
+  <script>
+    // To connect to your separate Render Backend Web Service, configure your backend URL below:
+    window.JBD_CONFIG = window.JBD_CONFIG || {
+      API_URL: localStorage.getItem('jbd_backend_url') || 
+               (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+                 ? '/api' 
+                 : 'https://jbd-travels-backend.onrender.com/api')
+    };
+  </script>
+
+  <!-- API Client -->
+  <script src="/static/js/api.js?v=2.3.0"></script>
+
+  <!-- React Application Source -->
+  <script type="text/babel" src="/static/js/app.js?v=2.3.0"></script>
+
+</body>
+</html>

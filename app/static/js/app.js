@@ -209,9 +209,139 @@ function AuthModal({ isOpen, onClose, onAuthSuccess, showToast }) {
 }
 
 // ----------------------------------------------------
+// API CONFIG MODAL (Render Deployment Backend Connector)
+// ----------------------------------------------------
+function ApiConfigModal({ isOpen, onClose, showToast, onConnectionChange }) {
+  const [backendUrl, setBackendUrl] = useState(() => api.getBaseUrl());
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setBackendUrl(api.getBaseUrl());
+      setTestResult(null);
+    }
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const handleTest = async () => {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const clean = (backendUrl || '').trim().replace(/\/+$/, '');
+      const testEndpoint = clean.endsWith('/api') ? `${clean}/health` : `${clean}/api/health`;
+      const res = await fetch(testEndpoint, { method: 'GET' });
+      const data = await res.json();
+      if (data && data.status === 'healthy') {
+        setTestResult({ success: true, message: `Connected successfully! (${data.service || 'JBD API'})` });
+      } else {
+        setTestResult({ success: false, message: 'Server reached, but returned unexpected health response.' });
+      }
+    } catch (err) {
+      setTestResult({ success: false, message: `Connection failed: ${err.message}. If Render service is waking up, wait ~45 seconds and retry.` });
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const handleSave = () => {
+    api.setBaseUrl(backendUrl);
+    showToast('Backend API URL updated successfully', 'success');
+    if (onConnectionChange) onConnectionChange();
+    onClose();
+  };
+
+  const handleReset = () => {
+    api.setBaseUrl('');
+    setBackendUrl(api.getBaseUrl());
+    showToast('Reset to default backend URL', 'info');
+    if (onConnectionChange) onConnectionChange();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
+      <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 relative">
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition"
+        >
+          <i className="fa-solid fa-xmark text-lg"></i>
+        </button>
+
+        <div className="flex items-center space-x-3 mb-4">
+          <div className="w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center text-lg">
+            <i className="fa-solid fa-network-wired"></i>
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-slate-900">Backend API Configuration</h3>
+            <p className="text-xs text-slate-500">Render separate deployment connector</p>
+          </div>
+        </div>
+
+        <p className="text-xs text-slate-600 mb-4 leading-relaxed">
+          Configure the backend endpoint for your JBD Travels React frontend. Enter your Render Web Service URL (e.g., <code className="bg-slate-100 px-1 py-0.5 rounded text-brand-600">https://jbd-travels-backend.onrender.com/api</code>).
+        </p>
+
+        <div className="mb-4">
+          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+            API Base URL
+          </label>
+          <input
+            type="text"
+            value={backendUrl}
+            onChange={(e) => setBackendUrl(e.target.value)}
+            placeholder="https://jbd-travels-backend.onrender.com/api"
+            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+          />
+        </div>
+
+        {testResult && (
+          <div className={`p-3 rounded-xl text-xs mb-4 flex items-start space-x-2 ${
+            testResult.success ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-rose-50 text-rose-800 border border-rose-200'
+          }`}>
+            <i className={`fa-solid mt-0.5 ${testResult.success ? 'fa-circle-check text-emerald-600' : 'fa-circle-exclamation text-rose-600'}`}></i>
+            <span>{testResult.message}</span>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between pt-2">
+          <button
+            type="button"
+            onClick={handleReset}
+            className="text-xs font-semibold text-slate-500 hover:text-slate-800 hover:underline"
+          >
+            Reset to Default
+          </button>
+
+          <div className="flex items-center space-x-2">
+            <button
+              type="button"
+              onClick={handleTest}
+              disabled={testing}
+              className="px-3 py-2 rounded-xl text-xs font-bold border border-slate-300 text-slate-700 hover:bg-slate-50 transition flex items-center space-x-1.5 disabled:opacity-50"
+            >
+              {testing ? <i className="fa-solid fa-spinner animate-spin"></i> : <i className="fa-solid fa-stethoscope"></i>}
+              <span>Test Ping</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              className="px-4 py-2 rounded-xl text-xs font-bold bg-brand-600 hover:bg-brand-700 text-white shadow-md shadow-brand-600/20 transition"
+            >
+              Save & Connect
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ----------------------------------------------------
 // NAVBAR COMPONENT (Production Level with Currency Converter)
 // ----------------------------------------------------
-function Navbar({ activeTab, setActiveTab, currentUser, onOpenAuth, onLogout, currency, setCurrency }) {
+function Navbar({ activeTab, setActiveTab, currentUser, onOpenAuth, onLogout, currency, setCurrency, backendOnline, onOpenApiConfig }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
@@ -353,6 +483,32 @@ function Navbar({ activeTab, setActiveTab, currentUser, onOpenAuth, onLogout, cu
                 <span className="text-[10px] text-emerald-600">(₹)</span>
               </button>
             </div>
+
+            {/* Backend API Server Status & Connector Button */}
+            <button
+              type="button"
+              onClick={onOpenApiConfig}
+              className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 border shadow-sm ${
+                backendOnline === true
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+                  : backendOnline === false
+                  ? 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
+                  : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
+              }`}
+              title="Click to check or configure Render Backend API URL"
+            >
+              <span className={`w-2 h-2 rounded-full ${
+                backendOnline === true
+                  ? 'bg-emerald-500'
+                  : backendOnline === false
+                  ? 'bg-amber-500 animate-pulse'
+                  : 'bg-slate-400'
+              }`}></span>
+              <span className="hidden xl:inline">
+                {backendOnline === true ? 'API Connected' : backendOnline === false ? 'API Offline / Sleeping' : 'Connecting...'}
+              </span>
+              <i className="fa-solid fa-server text-[10px] text-slate-400"></i>
+            </button>
 
             {/* User Profile or Sign In */}
             {currentUser ? (
@@ -3851,6 +4007,8 @@ function App() {
   const [activeTab, setActiveTab] = useState('explore');
   const [currentUser, setCurrentUser] = useState(null);
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [apiConfigModalOpen, setApiConfigModalOpen] = useState(false);
+  const [backendOnline, setBackendOnline] = useState(null);
   const [toasts, setToasts] = useState([]);
 
   // Convertible Currency State (USD or INR, defaults to USD or saved in localStorage)
@@ -3869,12 +4027,23 @@ function App() {
   const [plannerBudget, setPlannerBudget] = useState(3000);
   const [plannerDuration, setPlannerDuration] = useState(5);
 
+  const checkBackendStatus = () => {
+    api.checkHealth()
+      .then(res => {
+        setBackendOnline(res && res.status === 'healthy');
+      })
+      .catch(() => {
+        setBackendOnline(false);
+      });
+  };
+
   useEffect(() => {
     // Check saved session in localStorage (production behavior: no auto-login as customer)
     const savedUser = api.getUser();
     if (savedUser) {
       setCurrentUser(savedUser);
     }
+    checkBackendStatus();
   }, []);
 
   const showToast = (message, type = 'info') => {
@@ -3934,6 +4103,8 @@ function App() {
         onLogout={handleLogout}
         currency={currency}
         setCurrency={setCurrency}
+        backendOnline={backendOnline}
+        onOpenApiConfig={() => setApiConfigModalOpen(true)}
       />
 
       {/* Main Tab Content */}
@@ -4056,6 +4227,13 @@ function App() {
       </footer>
 
       {/* Global Modals & Notifications */}
+      <ApiConfigModal
+        isOpen={apiConfigModalOpen}
+        onClose={() => setApiConfigModalOpen(false)}
+        showToast={showToast}
+        onConnectionChange={checkBackendStatus}
+      />
+
       <AuthModal
         isOpen={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
