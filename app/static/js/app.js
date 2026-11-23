@@ -62,7 +62,6 @@ function ToastContainer({ toasts, removeToast }) {
 // ----------------------------------------------------
 function AuthModal({ isOpen, onClose, onAuthSuccess, showToast }) {
   const [isRegister, setIsRegister] = useState(false);
-  const [selectedRole, setSelectedRole] = useState('customer'); // 'customer', 'employee', 'admin'
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -82,14 +81,13 @@ function AuthModal({ isOpen, onClose, onAuthSuccess, showToast }) {
           email,
           password,
           full_name: fullName,
-          role: selectedRole,
           nationality
         });
         showToast(res.message, 'success');
         onAuthSuccess(res.user);
         onClose();
       } else {
-        const res = await api.login(email || username, password, selectedRole);
+        const res = await api.login(email || username, password);
         showToast(res.message, 'success');
         onAuthSuccess(res.user);
         onClose();
@@ -102,8 +100,8 @@ function AuthModal({ isOpen, onClose, onAuthSuccess, showToast }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
-      <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative border border-slate-100 animate-fadeIn">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 overflow-y-auto">
+      <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl relative border border-slate-100 animate-fadeIn max-h-[92vh] overflow-y-auto my-auto">
         <button
           onClick={onClose}
           className="absolute top-5 right-5 text-slate-400 hover:text-slate-600 w-9 h-9 rounded-full flex items-center justify-center hover:bg-slate-100 transition"
@@ -117,77 +115,17 @@ function AuthModal({ isOpen, onClose, onAuthSuccess, showToast }) {
             <i className="fa-solid fa-plane-departure"></i>
           </div>
           <h3 className="text-2xl font-black text-slate-900 tracking-tight">
-            {isRegister ? 'Create JBD Travels Account' : 'Sign In to JBD Travels'}
+            {isRegister ? 'Join JBD Travels' : 'Sign In to JBD Travels'}
           </h3>
           <p className="text-slate-500 text-xs mt-1">
             {isRegister
-              ? 'Join our global travel network with role-tailored features.'
-              : 'Secure role-based portal access with encrypted credentials.'}
+              ? 'Create your customer account to plan AI journeys and unlock partner rates.'
+              : 'Enter your credentials to securely access your account.'}
           </p>
         </div>
 
-        {/* SUITABLE ROLE SELECTION SECTION */}
-        <div className="mb-6">
-          <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">
-            Select Account Role & Portal
-          </label>
-          <div className="grid grid-cols-3 gap-2">
-            <button
-              type="button"
-              onClick={() => setSelectedRole('customer')}
-              className={`p-3 rounded-2xl border text-center transition flex flex-col items-center justify-center space-y-1.5 ${
-                selectedRole === 'customer'
-                  ? 'border-emerald-500 bg-emerald-50/80 text-emerald-900 shadow-sm ring-2 ring-emerald-500/20'
-                  : 'border-slate-200 bg-slate-50/60 text-slate-600 hover:bg-slate-100'
-              }`}
-            >
-              <i className="fa-solid fa-user text-base text-emerald-600"></i>
-              <span className="text-xs font-bold leading-tight">Customer</span>
-              <span className="text-[10px] text-slate-400 font-normal">Traveler</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setSelectedRole('employee')}
-              className={`p-3 rounded-2xl border text-center transition flex flex-col items-center justify-center space-y-1.5 ${
-                selectedRole === 'employee'
-                  ? 'border-brand-500 bg-brand-50/80 text-brand-900 shadow-sm ring-2 ring-brand-500/20'
-                  : 'border-slate-200 bg-slate-50/60 text-slate-600 hover:bg-slate-100'
-              }`}
-            >
-              <i className="fa-solid fa-headset text-base text-brand-600"></i>
-              <span className="text-xs font-bold leading-tight">Agent</span>
-              <span className="text-[10px] text-slate-400 font-normal">Employee</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setSelectedRole('admin')}
-              className={`p-3 rounded-2xl border text-center transition flex flex-col items-center justify-center space-y-1.5 ${
-                selectedRole === 'admin'
-                  ? 'border-purple-500 bg-purple-50/80 text-purple-900 shadow-sm ring-2 ring-purple-500/20'
-                  : 'border-slate-200 bg-slate-50/60 text-slate-600 hover:bg-slate-100'
-              }`}
-            >
-              <i className="fa-solid fa-shield-halved text-base text-purple-600"></i>
-              <span className="text-xs font-bold leading-tight">Admin</span>
-              <span className="text-[10px] text-slate-400 font-normal">Executive</span>
-            </button>
-          </div>
-
-          {/* Role Portal Context Description */}
-          <div className="mt-2 text-[11px] text-slate-500 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200/80 flex items-center space-x-1.5">
-            <i className="fa-solid fa-circle-info text-brand-600 text-[10px]"></i>
-            <span>
-              {selectedRole === 'customer' && 'Customer Portal: AI travel planning, budget optimization, and partner hotel discounts.'}
-              {selectedRole === 'employee' && 'Agent Portal: Customer booking inquiries, custom trip itineraries, and reservation quotes.'}
-              {selectedRole === 'admin' && 'Admin Portal: Executive revenue metrics, partner hotel CRUD, commissions, and system governance.'}
-            </span>
-          </div>
-        </div>
-
         {/* Input Form */}
-        <form onSubmit={handleSubmit} className="space-y-3.5">
+        <form onSubmit={handleSubmit} className="space-y-4">
           {isRegister && (
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Full Name</label>
@@ -211,10 +149,7 @@ function AuthModal({ isOpen, onClose, onAuthSuccess, showToast }) {
               required
               value={email}
               onChange={e => setEmail(e.target.value)}
-              placeholder={
-                selectedRole === 'admin' ? 'admin@jbdtravels.com' :
-                selectedRole === 'employee' ? 'agent@jbdtravels.com' : 'user@example.com'
-              }
+              placeholder="user@example.com"
               className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
             />
           </div>
@@ -248,22 +183,12 @@ function AuthModal({ isOpen, onClose, onAuthSuccess, showToast }) {
           <button
             type="submit"
             disabled={loading}
-            className={`w-full py-3.5 text-white rounded-xl font-bold text-sm shadow-lg transition flex items-center justify-center space-x-2 ${
-              selectedRole === 'admin'
-                ? 'bg-purple-600 hover:bg-purple-700 shadow-purple-600/25'
-                : selectedRole === 'employee'
-                ? 'bg-brand-600 hover:bg-brand-700 shadow-brand-600/25'
-                : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/25'
-            }`}
+            className="w-full py-3.5 text-white rounded-xl font-bold text-sm shadow-lg gradient-jbd hover:opacity-95 transition flex items-center justify-center space-x-2 shadow-brand-600/25"
           >
             {loading ? (
               <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
             ) : (
-              <span>
-                {isRegister
-                  ? `Register as ${selectedRole === 'admin' ? 'Administrator' : selectedRole === 'employee' ? 'Travel Agent' : 'Customer'}`
-                  : `Sign In as ${selectedRole === 'admin' ? 'Administrator' : selectedRole === 'employee' ? 'Travel Agent' : 'Customer'}`}
-              </span>
+              <span>{isRegister ? 'Create Account' : 'Sign In'}</span>
             )}
           </button>
         </form>
@@ -2833,6 +2758,16 @@ function AdminDashboardTab({ currentUser, showToast, currency }) {
   const [adminHotels, setAdminHotels] = useState([]);
   const [adminInquiries, setAdminInquiries] = useState([]);
   const [settings, setSettings] = useState({});
+  const [usersList, setUsersList] = useState([]);
+
+  // Staff Authorization Modal state
+  const [showAddStaffModal, setShowAddStaffModal] = useState(false);
+  const [staffName, setStaffName] = useState('');
+  const [staffEmail, setStaffEmail] = useState('');
+  const [staffUsername, setStaffUsername] = useState('');
+  const [staffPassword, setStaffPassword] = useState('');
+  const [staffRole, setStaffRole] = useState('employee');
+  const [staffSubmitting, setStaffSubmitting] = useState(false);
 
   // CRUD Hotel Modal state
   const [hotelModalOpen, setHotelModalOpen] = useState(false);
@@ -2848,7 +2783,7 @@ function AdminDashboardTab({ currentUser, showToast, currency }) {
   const [hotelFormImage, setHotelFormImage] = useState('');
 
   // Active view inside admin dashboard
-  const [adminSubView, setAdminSubView] = useState('analytics'); // 'analytics', 'hotels', 'settings'
+  const [adminSubView, setAdminSubView] = useState('analytics'); // 'analytics', 'hotels', 'settings', 'staff'
 
   const chartRef1 = useRef(null);
   const chartInstance1 = useRef(null);
@@ -2862,20 +2797,58 @@ function AdminDashboardTab({ currentUser, showToast, currency }) {
   const loadAllAdminData = async () => {
     setLoading(true);
     try {
-      const [dashRes, hotelsRes, inqRes, setRes] = await Promise.all([
+      const [dashRes, hotelsRes, inqRes, setRes, usersRes] = await Promise.all([
         api.getAdminDashboard(),
         api.getAdminHotels(),
         api.getAdminInquiries(),
-        api.getAdminSettings()
+        api.getAdminSettings(),
+        api.getAdminUsers()
       ]);
       setDashboardData(dashRes);
       setAdminHotels(hotelsRes.hotels || []);
       setAdminInquiries(inqRes.inquiries || []);
       setSettings(setRes.settings || {});
+      setUsersList(usersRes.users || []);
     } catch (err) {
       showToast('Access restricted: Administrator privileges required.', 'error');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCreateStaff = async (e) => {
+    e.preventDefault();
+    setStaffSubmitting(true);
+    try {
+      const res = await api.createAdminStaff({
+        full_name: staffName,
+        email: staffEmail,
+        username: staffUsername,
+        password: staffPassword,
+        role: staffRole
+      });
+      showToast(res.message, 'success');
+      setShowAddStaffModal(false);
+      setStaffName('');
+      setStaffEmail('');
+      setStaffUsername('');
+      setStaffPassword('');
+      const usersRes = await api.getAdminUsers();
+      setUsersList(usersRes.users || []);
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setStaffSubmitting(false);
+    }
+  };
+
+  const handleChangeUserRole = async (userId, targetRole) => {
+    try {
+      const res = await api.updateAdminUserRole(userId, targetRole);
+      showToast(res.message, 'success');
+      setUsersList(usersList.map(u => u.id === userId ? { ...u, role: targetRole } : u));
+    } catch (err) {
+      showToast(err.message, 'error');
     }
   };
 
@@ -3076,6 +3049,16 @@ function AdminDashboardTab({ currentUser, showToast, currency }) {
           >
             <i className="fa-solid fa-sliders"></i>
             <span>Commission Rules</span>
+          </button>
+
+          <button
+            onClick={() => setAdminSubView('staff')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 ${
+              adminSubView === 'staff' ? 'bg-white text-purple-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <i className="fa-solid fa-user-shield"></i>
+            <span>Staff & Access ({usersList.length})</span>
           </button>
         </div>
       </div>
@@ -3315,6 +3298,112 @@ function AdminDashboardTab({ currentUser, showToast, currency }) {
               </form>
             </div>
           )}
+
+          {/* SUBVIEW 4: STAFF & ROLE ACCESS GOVERNANCE */}
+          {adminSubView === 'staff' && (
+            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-sm space-y-6 animate-fadeIn">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-3">
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900">Staff & Role Access Governance</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Authorized personnel only. Grant Travel Agent or Administrator credentials, or manage registered platform accounts.
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => setShowAddStaffModal(true)}
+                  className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition flex items-center space-x-1.5 shadow-md shadow-purple-600/20 self-start sm:self-auto"
+                >
+                  <i className="fa-solid fa-user-plus"></i>
+                  <span>Authorize New Staff</span>
+                </button>
+              </div>
+
+              {/* Users Table */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase tracking-wider font-bold">
+                    <tr>
+                      <th className="p-3.5">User Details</th>
+                      <th className="p-3.5">Username</th>
+                      <th className="p-3.5">Role Permission</th>
+                      <th className="p-3.5">Registered</th>
+                      <th className="p-3.5 text-right">Role Access Control</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {usersList.map(u => (
+                      <tr key={u.id} className="hover:bg-slate-50/60 transition">
+                        <td className="p-3.5">
+                          <div className="font-bold text-slate-900 text-sm">{u.full_name || u.username}</div>
+                          <div className="text-slate-400 text-[11px]">{u.email}</div>
+                        </td>
+                        <td className="p-3.5 text-slate-600 font-mono text-xs">
+                          @{u.username}
+                        </td>
+                        <td className="p-3.5">
+                          {u.role === 'admin' ? (
+                            <span className="px-2.5 py-1 rounded-full bg-purple-100 text-purple-800 font-extrabold text-[10px] uppercase border border-purple-200 inline-flex items-center space-x-1">
+                              <i className="fa-solid fa-shield-halved text-[9px]"></i>
+                              <span>Administrator</span>
+                            </span>
+                          ) : u.role === 'employee' ? (
+                            <span className="px-2.5 py-1 rounded-full bg-brand-100 text-brand-800 font-extrabold text-[10px] uppercase border border-brand-200 inline-flex items-center space-x-1">
+                              <i className="fa-solid fa-headset text-[9px]"></i>
+                              <span>Travel Agent</span>
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 font-extrabold text-[10px] uppercase border border-emerald-200 inline-flex items-center space-x-1">
+                              <i className="fa-solid fa-user text-[9px]"></i>
+                              <span>Customer</span>
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-3.5 text-slate-400 text-xs">
+                          {u.created_at ? new Date(u.created_at).toLocaleDateString() : 'Active'}
+                        </td>
+                        <td className="p-3.5 text-right">
+                          {u.id === currentUser.id ? (
+                            <span className="text-[11px] text-slate-400 italic">Current Session</span>
+                          ) : (
+                            <div className="inline-flex items-center space-x-1.5">
+                              {u.role !== 'employee' && (
+                                <button
+                                  onClick={() => handleChangeUserRole(u.id, 'employee')}
+                                  className="px-2.5 py-1 bg-brand-50 hover:bg-brand-100 text-brand-700 rounded-lg text-[11px] font-bold border border-brand-200 transition"
+                                  title="Grant Travel Agent permissions"
+                                >
+                                  Make Agent
+                                </button>
+                              )}
+                              {u.role !== 'admin' && (
+                                <button
+                                  onClick={() => handleChangeUserRole(u.id, 'admin')}
+                                  className="px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg text-[11px] font-bold border border-purple-200 transition"
+                                  title="Grant Administrator permissions"
+                                >
+                                  Make Admin
+                                </button>
+                              )}
+                              {u.role !== 'customer' && (
+                                <button
+                                  onClick={() => handleChangeUserRole(u.id, 'customer')}
+                                  className="px-2.5 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-700 text-slate-600 rounded-lg text-[11px] font-bold border border-slate-200 transition"
+                                  title="Revert to Customer"
+                                >
+                                  Set Customer
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </>
       )}
 
@@ -3456,6 +3545,104 @@ function AdminDashboardTab({ currentUser, showToast, currency }) {
                   Save Partner Hotel
                 </button>
               </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Authorize New Staff Member Modal */}
+      {showAddStaffModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl relative max-h-[90vh] overflow-y-auto animate-fadeIn my-auto">
+            <button
+              onClick={() => setShowAddStaffModal(false)}
+              className="absolute top-5 right-5 text-slate-400 hover:text-slate-600 w-8 h-8 rounded-full flex items-center justify-center hover:bg-slate-100"
+            >
+              <i className="fa-solid fa-xmark text-lg"></i>
+            </button>
+
+            <div className="text-center mb-5">
+              <div className="w-10 h-10 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center mx-auto mb-2 text-lg">
+                <i className="fa-solid fa-user-shield"></i>
+              </div>
+              <h3 className="text-xl font-bold text-slate-900">Authorize New Staff Member</h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Grant authorized employee or administrator privileges.
+              </p>
+            </div>
+
+            <form onSubmit={handleCreateStaff} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Full Name</label>
+                <input
+                  type="text"
+                  required
+                  value={staffName}
+                  onChange={e => setStaffName(e.target.value)}
+                  placeholder="e.g. Jessica Taylor"
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Email Address</label>
+                <input
+                  type="email"
+                  required
+                  value={staffEmail}
+                  onChange={e => setStaffEmail(e.target.value)}
+                  placeholder="jtaylor@jbdtravels.com"
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Username</label>
+                <input
+                  type="text"
+                  required
+                  value={staffUsername}
+                  onChange={e => setStaffUsername(e.target.value)}
+                  placeholder="jtaylor_agent"
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Password</label>
+                <input
+                  type="password"
+                  required
+                  value={staffPassword}
+                  onChange={e => setStaffPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Assigned Role Privilege</label>
+                <select
+                  value={staffRole}
+                  onChange={e => setStaffRole(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs bg-white focus:ring-2 focus:ring-purple-500"
+                >
+                  <option value="employee">Travel Specialist / Agent (Agent Portal Access)</option>
+                  <option value="admin">Executive Administrator (Full Admin Access)</option>
+                </select>
+              </div>
+
+              <button
+                type="submit"
+                disabled={staffSubmitting}
+                className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl text-xs shadow-md transition mt-2 flex items-center justify-center space-x-2"
+              >
+                {staffSubmitting ? (
+                  <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                ) : (
+                  <span>Authorize Staff Access</span>
+                )}
+              </button>
             </form>
           </div>
         </div>

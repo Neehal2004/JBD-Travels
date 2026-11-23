@@ -223,3 +223,79 @@ def update_settings(current_user):
         'success': True,
         'message': 'System settings updated successfully.'
     })
+
+# ----------------- STAFF & ACCESS GOVERNANCE (Admin Only) -----------------
+
+@admin_bp.route('/users', methods=['GET'])
+@roles_required(['admin'])
+def list_users(current_user):
+    """Retrieve all users and their assigned roles for Admin access governance"""
+    users = User.query.order_by(User.created_at.desc()).all()
+    return jsonify({
+        'success': True,
+        'count': len(users),
+        'users': [u.to_dict() for u in users]
+    })
+
+@admin_bp.route('/users', methods=['POST'])
+@roles_required(['admin'])
+def create_staff_user(current_user):
+    """Authorized Administrator creates a new staff member (Travel Agent or Administrator)"""
+    data = request.get_json() or {}
+    username = data.get('username', '').strip()
+    email = data.get('email', '').strip().lower()
+    password = data.get('password', '')
+    full_name = data.get('full_name', '').strip()
+    role = data.get('role', 'employee').strip().lower()
+
+    if not username or not email or not password:
+        return jsonify({'success': False, 'message': 'Username, email and password are required.'}), 400
+
+    if role not in ['employee', 'admin', 'customer']:
+        role = 'employee'
+
+    if User.query.filter_by(username=username).first():
+        return jsonify({'success': False, 'message': 'Username is already taken.'}), 409
+
+    if User.query.filter_by(email=email).first():
+        return jsonify({'success': False, 'message': 'Email is already registered.'}), 409
+
+    user = User(
+        username=username,
+        email=email,
+        full_name=full_name or username,
+        role=role,
+        nationality='United States'
+    )
+    user.set_password(password)
+    db.session.add(user)
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'message': f'Authorized {role.capitalize()} account created for {user.full_name}.',
+        'user': user.to_dict()
+    }), 201
+
+@admin_bp.route('/users/<int:user_id>/role', methods=['PUT'])
+@roles_required(['admin'])
+def update_user_role(current_user, user_id):
+    """Authorized Administrator updates role permissions for an existing user"""
+    user = User.query.get_or_404(user_id)
+    if user.id == current_user.id:
+        return jsonify({'success': False, 'message': 'Cannot modify your own administrator role.'}), 400
+
+    data = request.get_json() or {}
+    new_role = data.get('role', '').strip().lower()
+    if new_role not in ['customer', 'employee', 'admin']:
+        return jsonify({'success': False, 'message': 'Invalid role specified.'}), 400
+
+    user.role = new_role
+    db.session.commit()
+
+    role_label = 'Administrator' if new_role == 'admin' else 'Travel Agent' if new_role == 'employee' else 'Customer'
+    return jsonify({
+        'success': True,
+        'message': f'Permissions for {user.full_name or user.username} updated to {role_label}.',
+        'user': user.to_dict()
+    })

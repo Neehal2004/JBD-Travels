@@ -240,6 +240,25 @@ const api = {
       method: 'PUT',
       body: JSON.stringify(data)
     });
+  },
+
+  // Staff & Access Governance (Admin Only)
+  async getAdminUsers() {
+    return await this.request('/admin/users');
+  },
+
+  async createAdminStaff(data) {
+    return await this.request('/admin/users', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  async updateAdminUserRole(userId, role) {
+    return await this.request(`/admin/users/${userId}/role`, {
+      method: 'PUT',
+      body: JSON.stringify({ role })
+    });
   }
 };
 

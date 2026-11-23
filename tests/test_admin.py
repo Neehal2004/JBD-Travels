@@ -90,5 +90,31 @@ class AdminDashboardTestCase(unittest.TestCase):
         self.assertIn('monthly_trends', summary['charts'])
         self.assertIn('travel_styles', summary['charts'])
 
+    def test_staff_governance(self):
+        # 1. List users
+        res_users = self.client.get('/api/admin/users', headers=self.headers)
+        self.assertEqual(res_users.status_code, 200)
+        self.assertGreaterEqual(res_users.get_json()['count'], 1)
+
+        # 2. Authorize new Travel Agent
+        res_create = self.client.post('/api/admin/users', headers=self.headers, json={
+            'full_name': 'Sarah Connor',
+            'email': 'sarah@jbdtravels.com',
+            'username': 'sarah_agent',
+            'password': 'AgentPassword123!',
+            'role': 'employee'
+        })
+        self.assertEqual(res_create.status_code, 201)
+        new_user = res_create.get_json()['user']
+        self.assertEqual(new_user['role'], 'employee')
+        user_id = new_user['id']
+
+        # 3. Promote to Admin
+        res_role = self.client.put(f'/api/admin/users/{user_id}/role', headers=self.headers, json={
+            'role': 'admin'
+        })
+        self.assertEqual(res_role.status_code, 200)
+        self.assertEqual(res_role.get_json()['user']['role'], 'admin')
+
 if __name__ == '__main__':
     unittest.main()

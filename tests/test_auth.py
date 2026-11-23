@@ -63,14 +63,17 @@ class AuthTestCase(unittest.TestCase):
         res_admin = self.client.get('/api/admin/dashboard', headers={'Authorization': f'Bearer {cust_token}'})
         self.assertEqual(res_admin.status_code, 403)
 
-        # Register admin
-        res_adm = self.client.post('/api/auth/register', json={
-            'username': 'super_admin',
-            'email': 'admin@example.com',
-            'password': 'Password123!',
-            'role': 'admin'
+        # Create admin user directly (as public registration is strictly customer-only)
+        admin = User(username='super_admin', email='admin@example.com', role='admin')
+        admin.set_password('Password123!')
+        db.session.add(admin)
+        db.session.commit()
+
+        res_login_adm = self.client.post('/api/auth/login', json={
+            'email_or_username': 'super_admin',
+            'password': 'Password123!'
         })
-        adm_token = res_adm.get_json()['token']
+        adm_token = res_login_adm.get_json()['token']
 
         # Admin accessing admin dashboard should succeed (200)
         res_admin_ok = self.client.get('/api/admin/dashboard', headers={'Authorization': f'Bearer {adm_token}'})

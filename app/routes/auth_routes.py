@@ -17,8 +17,9 @@ def register():
     if not username or not email or not password:
         return jsonify({'success': False, 'message': 'Username, email and password are required.'}), 400
 
-    if role not in ['customer', 'employee', 'admin']:
-        role = 'customer'
+    # Public registration is strictly for customer travelers.
+    # Agent and Admin roles can only be granted by authorized personnel (Administrator).
+    role = 'customer'
 
     if User.query.filter_by(username=username).first():
         return jsonify({'success': False, 'message': 'Username is already taken.'}), 409
@@ -41,7 +42,7 @@ def register():
     token = generate_token(user)
     return jsonify({
         'success': True,
-        'message': f'Registration successful as {role.capitalize()}.',
+        'message': 'Welcome to JBD Travels! Your customer account has been created.',
         'token': token,
         'user': user.to_dict()
     }), 201
@@ -51,7 +52,6 @@ def login():
     data = request.get_json() or {}
     email_or_user = data.get('email_or_username', '').strip()
     password = data.get('password', '')
-    expected_role = data.get('role') or data.get('expected_role')
 
     if not email_or_user or not password:
         return jsonify({'success': False, 'message': 'Please provide email/username and password.'}), 400
@@ -62,16 +62,6 @@ def login():
 
     if not user or not user.check_password(password):
         return jsonify({'success': False, 'message': 'Invalid credentials. Please verify your email/username and password.'}), 401
-
-    # Role enforcement when logging in via specific portal
-    if expected_role:
-        role_req = expected_role.strip().lower()
-        if role_req == 'admin' and user.role != 'admin':
-            return jsonify({'success': False, 'message': 'Access denied: This account does not possess Administrator privileges.'}), 403
-        if role_req in ['employee', 'agent'] and user.role != 'employee':
-            return jsonify({'success': False, 'message': 'Access denied: This account does not possess Travel Agent privileges.'}), 403
-        if role_req == 'customer' and user.role != 'customer':
-            return jsonify({'success': False, 'message': 'Access notice: Staff accounts (Agent / Admin) must sign in through their respective role portal.'}), 403
 
     token = generate_token(user)
     return jsonify({
