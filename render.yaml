@@ -26,7 +26,6 @@ services:
     runtime: static
     buildCommand: ""
     staticPublishPath: "./frontend"
-    plan: free
     headers:
       - path: /*
         name: Access-Control-Allow-Origin
